@@ -9,6 +9,7 @@ export const darkTheme = {
   textColor: {
     textPrimary: 'rgba(255, 255, 255, 1)',
     Primary6: 'rgba(255, 255, 255, 0.06)',
+    Primary10: 'rgba(0, 0, 0, 0.1)',
     Primary20: 'rgba(255, 255, 255, 0.2)',
     Primary30: 'rgba(255, 255, 255, 0.3)',
     Primary50: 'rgba(255, 255, 255, 0.5)',
@@ -16,11 +17,13 @@ export const darkTheme = {
     buttonText: 'rgba(255, 255, 255, 1)',
     buttonText70: 'rgba(255, 255, 255, 0.7)',
     buttonText60: 'rgba(255, 255, 255, 0.6)',
-    buttonText10: 'rgba(255, 255, 255, 0.1)'
+    buttonText10: 'rgba(255, 255, 255, 0.1)',
+    placeholder: 'rgba(197, 200, 206, 1)',
   },
   boxColor: {
     buttonPrimary: 'rgba(43, 72, 147, 1)',
     buttonSecondary: 'rgba(255, 255, 255, 0.1)',
+    buttonSecondary40: 'rgba(255, 255, 255, 0.4)',
     inputPrimary: 'rgba(255, 255, 255, 0.1)',
     inputSecondary: 'rgba(255, 255, 255, 0.2)',
     tagResultPrimary: 'rgba(66,115,237,0.1)',
@@ -28,6 +31,7 @@ export const darkTheme = {
     tagDetailPrimary: 'rgba(135,166,255,0.7)',
     tagDetailSecondary: 'rgba(255, 255, 255, 0.2)',
     modalBar: 'rgba(0, 0, 0, 0.15)',
+    placeholder: 'rgba(255, 255, 255, 0.1)',
   },
   bgColor: {
     bgPrimary: 'rgba(17, 17, 17, 1)',

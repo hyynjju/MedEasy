@@ -1,9 +1,15 @@
 import React, {useState} from 'react';
-import {SafeAreaView, Text} from 'react-native';
+import {
+  SafeAreaView,
+  Text,
+  Keyboard,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import styled from 'styled-components/native';
 import {themes, fonts} from './../../styles';
 import {ProgressBar, BackAndNextButtons} from './../../components';
 import {useSignUp} from '../../api/context/SignUpContext';
+import FontSizes from '../../../assets/fonts/fontSizes';
 
 const Container = styled(SafeAreaView)`
   flex: 1;
@@ -42,19 +48,20 @@ const TextInput = styled.TextInput`
   border-radius: 8px;
   background-color: ${themes.light.boxColor.inputPrimary};
   padding: 20px;
-  font-size: 16px;
+  font-size: ${FontSizes.body.default};
+  /* color: ${themes.light.textColor.Primary100 || '#000000'}; */
 `;
 
 const SignUpNameScreen = ({navigation}) => {
   const {signUpData, updateSignUpData} = useSignUp();
-  const [firstName, setFirstName] = useState(signUpData.firstName || '');
-  const [lastName, setLastName] = useState(signUpData.lastName || '');
+  const [name, setName] = useState(signUpData.name || '');
   const progress = '25%';
+  const secondInput = React.useRef();
 
   const handleNext = () => {
-    if (firstName && lastName) {
+    if (name) {
       // Context에 상태 저장
-      updateSignUpData({firstName, lastName});
+      updateSignUpData({name});
       navigation.navigate('SignUpEmail');
     } else {
       alert('성을 포함한 이름을 모두 입력하세요.');
@@ -62,49 +69,47 @@ const SignUpNameScreen = ({navigation}) => {
   };
 
   return (
-    <Container>
-      <ProgressBar progress={progress} />
-      <Container1>
-        <Text
-          style={{
-            fontFamily: fonts.title.fontFamily,
-            fontSize: fonts.title.fontSize,
-          }}>
-          안녕하세요, 메디지입니다 👋
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Pretendard-Medium',
-            fontSize: 16,
-            marginTop: 7,
-            color: themes.light.textColor.Primary50,
-          }}>
-          이름을 입력해주세요.
-        </Text>
-      </Container1>
-      <Container2>
-        <InputContainer marginRight="5px">
-          <TextInput
-            placeholder="성"
-            value={lastName}
-            onChangeText={setLastName}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <Container>
+        <ProgressBar progress={progress} />
+        <Container1>
+          <Text
+            style={{
+              fontFamily: fonts.title.fontFamily,
+              fontSize: fonts.title.fontSize,
+            }}>
+            안녕하세요, 메디지입니다 👋
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Pretendard-Medium',
+              fontSize: 16,
+              marginTop: 7,
+              color: themes.light.textColor.Primary50,
+            }}>
+            이름을 입력해주세요.
+          </Text>
+        </Container1>
+        <Container2>
+          <InputContainer marginRight="5px">
+            <TextInput
+              placeholder="이름"
+              placeholderTextColor={themes.light.textColor.placeholder}
+              value={name}
+              onChangeText={setName}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
+            />
+          </InputContainer>
+        </Container2>
+        <BtnContainer>
+          <BackAndNextButtons
+            onPressPrev={() => navigation.goBack()}
+            onPressNext={handleNext}
           />
-        </InputContainer>
-        <InputContainer marginLeft="5px">
-          <TextInput
-            placeholder="이름"
-            value={firstName}
-            onChangeText={setFirstName}
-          />
-        </InputContainer>
-      </Container2>
-      <BtnContainer>
-        <BackAndNextButtons
-          onPressPrev={() => navigation.goBack()}
-          onPressNext={handleNext}
-        />
-      </BtnContainer>
-    </Container>
+        </BtnContainer>
+      </Container>
+    </TouchableWithoutFeedback>
   );
 };
 export default SignUpNameScreen;

@@ -1,11 +1,18 @@
 import React, {useState} from 'react';
-import {SafeAreaView, Text} from 'react-native';
+import {
+  SafeAreaView,
+  Text,
+  View,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import styled from 'styled-components/native';
 import {themes, pointColor, fonts} from './../../styles';
 import {ProgressBar, BackAndNextButtons} from './../../components';
 import {LogoIcons} from './../../../assets/icons';
 import {useSignUp} from '../../api/context/SignUpContext';
 import {handleSignUp} from '../../api/services/authService';
+import FontSizes from '../../../assets/fonts/fontSizes';
 
 const {logo: LogoIcon} = LogoIcons;
 
@@ -166,70 +173,78 @@ const SignUpDOBGenderScreen = ({navigation}) => {
 
   return (
     <Container>
-      <ProgressBar progress={progress} />
-
-      <Container1>
-        <Text
-          style={{
-            fontFamily: fonts.title.fontFamily,
-            fontSize: fonts.title.fontSize,
-          }}>
-          {signUpData.firstName}님, 반가워요!
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Pretendard-Medium',
-            fontSize: 16,
-            marginTop: 7,
-            color: themes.light.textColor.Primary50,
-          }}>
-          생년월일과 성별을 입력해주세요.
-        </Text>
-      </Container1>
-
-      <Container2>
-        <InputContainer marginBottom="5px">
-          <TextInput
-            placeholder="생년월일 (YYYY-MM-DD)"
-            value={birthday}
-            onChangeText={handleBirthDateChange}
-            keyboardType="numeric"
-            maxLength={10}
-          />
-          {dateError ? (
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{flex: 1}}>
+          <ProgressBar progress={progress} />
+          <Container1>
+            <Text
+              style={{
+                fontFamily: fonts.title.fontFamily,
+                fontSize: fonts.title.fontSize,
+              }}>
+              {signUpData.name}님, 반가워요!
+            </Text>
             <Text
               style={{
                 fontFamily: 'Pretendard-Medium',
-                color: 'red',
-                marginTop: 5,
-                fontSize: 12,
+                fontSize: 16,
+                marginTop: 7,
+                color: themes.light.textColor.Primary50,
               }}>
-              {dateError}
+              생년월일과 성별을 입력해주세요.
             </Text>
-          ) : null}
-        </InputContainer>
-      </Container2>
+          </Container1>
 
-      <Container3>
-        <GenderOption
-          type="male"
-          selected={gender === 'male'}
-          onSelect={setGender}
-        />
-        <GenderOption
-          type="female"
-          selected={gender === 'female'}
-          onSelect={setGender}
-        />
-      </Container3>
+          <Container2>
+            <InputContainer marginBottom="5px">
+              <TextInput
+                placeholder="생년월일 (YYYY-MM-DD)"
+                placeholderTextColor={themes.light.textColor.placeholder}
+                value={birthday}
+                onChangeText={handleBirthDateChange}
+                keyboardType="numeric"
+                maxLength={10}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                autoCorrect={false}
+                blurOnSubmit={true}
+              />
+              {dateError ? (
+                <Text
+                  style={{
+                    fontFamily: 'Pretendard-Medium',
+                    color: 'red',
+                    marginTop: 5,
+                    fontSize: 12,
+                  }}>
+                  {dateError}
+                </Text>
+              ) : null}
+            </InputContainer>
+          </Container2>
 
-      <BtnContainer>
-        <BackAndNextButtons
-          nextTitle="메디지 시작하기"
-          onPressPrev={() => navigation.goBack()}
-          onPressNext={handleNext}
-        />
-      </BtnContainer>
+          <Container3>
+            <GenderOption
+              type="male"
+              selected={gender === 'male'}
+              onSelect={setGender}
+            />
+            <GenderOption
+              type="female"
+              selected={gender === 'female'}
+              onSelect={setGender}
+            />
+          </Container3>
+
+          <BtnContainer>
+            <BackAndNextButtons
+              nextTitle="메디지 시작하기"
+              onPressPrev={() => navigation.goBack()}
+              onPressNext={handleNext}
+            />
+          </BtnContainer>
+        </View>
+      </TouchableWithoutFeedback>
     </Container>
   );
 };
@@ -299,7 +314,7 @@ const TextInput = styled.TextInput`
   border-radius: 10px;
   background-color: ${themes.light.boxColor.inputPrimary};
   padding: 20px;
-  font-size: 16px;
+  font-size: ${FontSizes.body.default};
 `;
 
 const GenderBtn = styled.TouchableOpacity`
@@ -319,7 +334,7 @@ const GenderText = styled.Text`
     props.selected
       ? themes.light.textColor.buttonText
       : themes.light.textColor.textPrimary};
-  font-size: 22px;
+  font-size: ${FontSizes.title.default};
   font-weight: bold;
 `;
 

@@ -10,16 +10,15 @@ import Routine from '../screens/Navigation/Routine';
 import MyPage from '../screens/Navigation/MyPage';
 import CameraSearchScreen from '../screens/Search/CameraSearch.js';
 import CameraSearchResultsScreen from '../screens/Search/CameraSearchResults.js';
-import PrescriptionSearchResultsScreen from '../screens/Search/PrescriptionSearchResults.js';
+import PhotoPreviewScreen from '../screens/Search/PhotoPreview.js';
 import Chat from '../screens/Chat/Chat.js';
+import VoiceChat from '../screens/Chat/VoiceChat.js';
 import {pointColor, themes} from './../styles';
-import {
-  TabIcons,
-  CameraIcons,
-  OtherIcons,
-  HeaderIcons,
-} from './../../assets/icons';
-import FontSizes from '../../assets/fonts/fontSizes.js';
+import {TabIcons, CameraIcons, OtherIcons} from './../../assets/icons';
+import FontSizes from '../../assets/fonts/fontSizes';
+import useRoutineUrl from '../hooks/useRoutineUrl';
+import RoutineCheckModal from './RoutineCheckModal';
+import {useFontSize} from '../../assets/fonts/FontSizeContext.js';
 
 // 카메라 버튼
 const CameraButton = ({onPress}) => {
@@ -38,6 +37,7 @@ const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
   const navigation = useNavigation();
+  const {fontSizeMode} = useFontSize();
 
   const handleCameraPress = useCallback(async () => {
     console.log('Camera button pressed');
@@ -49,8 +49,11 @@ const TabNavigator = () => {
   }, [navigation]);
 
   const handleChatPress = useCallback(() => {
-    navigation.navigate('Chat');
+    navigation.navigate('VoiceChat');
   }, [navigation]);
+
+  // useNfcListener 대신 useRoutineUrlHandler 사용
+  const {routineData, isModalVisible, closeModal} = useRoutineUrl();
 
   return (
     <MainContainer>
@@ -61,6 +64,10 @@ const TabNavigator = () => {
           },
           tabBarActiveTintColor: themes.light.pointColor.Primary,
           tabBarInactiveTintColor: themes.light.textColor.Primary20,
+          tabBarLabelStyle: {
+            fontSize: FontSizes.caption[fontSizeMode],
+            fontFamily: 'Pretendard-SemiBold',
+          },
         }}>
         <Tab.Screen
           name="홈"
@@ -70,6 +77,9 @@ const TabNavigator = () => {
             tabBarIcon: ({color, size}) => (
               <TabIcons.home width={30} height={30} style={{color: color}} />
             ),
+            tabBarItemStyle: {
+              paddingLeft: 20,
+            },
           }}
         />
         <Tab.Screen
@@ -81,11 +91,7 @@ const TabNavigator = () => {
               <TabIcons.search width={30} height={30} style={{color: color}} />
             ),
             tabBarItemStyle: {
-              marginLeft: -30,
-            },
-            tabBarItemStyle: {
-              marginLeft: -35,
-              marginRight: 15,
+              paddingRight: 30,
             },
           }}
           listeners={{
@@ -104,13 +110,19 @@ const TabNavigator = () => {
               <TabIcons.routine width={30} height={30} style={{color: color}} />
             ),
             tabBarItemStyle: {
-              marginRight: -30,
-            },
-            tabBarItemStyle: {
-              marginLeft: 15,
-              marginRight: -35,
+              paddingLeft: 30,
             },
           }}
+          listeners={({navigation}) => ({
+            tabPress: e => {
+              // 기본 탭 동작 방지
+              e.preventDefault();
+              // 루틴 화면으로 이동할 때 파라미터 초기화
+              navigation.navigate('루틴', {
+                selectedDate: null,
+              });
+            },
+          })}
         />
         <Tab.Screen
           name="내 정보"
@@ -120,15 +132,18 @@ const TabNavigator = () => {
             tabBarIcon: ({color, size}) => (
               <TabIcons.my width={30} height={30} style={{color: color}} />
             ),
+            tabBarItemStyle: {
+              paddingRight: 20,
+            },
           }}
         />
       </Tab.Navigator>
       <CameraButton onPress={handleCameraPress} />
       <ChatContainer>
-        <ChatBuble>
+        {/* <ChatBuble>
           <BubbleTail />
           <BubbleText>챗봇 약사에게{'\n'}상담해보세요!</BubbleText>
-        </ChatBuble>
+        </ChatBuble> */}
         <ChatButton onPress={handleChatPress}>
           <OtherIcons.chat
             width={25}
@@ -137,6 +152,13 @@ const TabNavigator = () => {
           />
         </ChatButton>
       </ChatContainer>
+
+      {/* ModalComponent 대신 RoutineCheckModal 사용 */}
+      <RoutineCheckModal
+        visible={isModalVisible}
+        onClose={closeModal}
+        routineData={routineData}
+      />
     </MainContainer>
   );
 };
@@ -158,8 +180,23 @@ const RootNavigator = () => {
         // options={{headerShown: false}}
       />
       <Stack.Screen
+        name="PhotoPreview"
+        component={PhotoPreviewScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="CameraSearchResults"
+        component={CameraSearchResultsScreen}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
         name="Chat"
         component={Chat}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen
+        name="VoiceChat"
+        component={VoiceChat}
         options={{headerShown: false}}
       />
     </Stack.Navigator>

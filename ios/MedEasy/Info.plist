@@ -20,10 +20,51 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao9779801f476eafda8410589c1fb3fc92</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>dev.medeasy</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>medeasy</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>KAKAO_APP_KEY</key>
+	<string>9779801f476eafda8410589c1fb3fc92</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakao9779801f476eafda8410589c1fb3fc92</string>
+		<string>kakaokompassauth</string>
+		<string>storykompassauth</string>
+		<string>kakaolink</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>복약 체크를 위해 NFC 태깅 권한이 필요합니다.</string>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>NDEF</string>
+		<string>TAG</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -32,11 +73,13 @@
 	<key>NSCameraUsageDescription</key>
 	<string>카메라 접근 권한이 필요합니다</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>위치 기반 서비스를 사용하기 위해 권한이 필요합니다</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>사진 저장을 위해 갤러리 접근 권한이 필요합니다</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>사진 저장을 위해 갤러리 접근 권한이 필요합니다</string>
+	<key>NSRemoteNotificationUsageDescription</key>
+	<string>알림을 받기 위해 권한이 필요합니다</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Pretendard-Regular.otf</string>
@@ -50,8 +93,12 @@
 		<string>MaterialCommunityIcons.ttf</string>
 		<string>Pretendard-Medium.otf</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<string></string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>

@@ -1,18 +1,25 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import styled from 'styled-components/native';
 import {View, ScrollView, Platform} from 'react-native';
 import {themes} from './../../styles';
-import {HeaderIcons, OtherIcons} from '../../../assets/icons';
-import {ModalHeader, ProgressBar, Button} from '../../components';
+import {
+    ModalHeader, 
+    ProgressBar, 
+    Button, 
+    InputWithDelete
+} from '../../components';
 import FontSizes from '../../../assets/fonts/fontSizes';
+import {useFontSize} from '../../../assets/fonts/FontSizeContext';
+
 import { createRoutine } from '../../api/routine';
 
 const SetMedicineTotal = ({route, navigation}) => {
-    const { medicine_id, nickname, day_of_weeks, user_schedule_ids, dose } = route.params;
+    const { medicine_id, nickname, routine_start_date, interval_days, user_schedule_ids, dose } = route.params;
     console.log("dose:", dose);
+    const progress = '100%';
+    const {fontSizeMode} = useFontSize();
     
     const [total, setTotal] = useState('');
-    const progress = '100%';
 
     const handleSaveRoutine = () => {
         // 전송할 데이터 구성
@@ -21,8 +28,9 @@ const SetMedicineTotal = ({route, navigation}) => {
             nickname,
             dose: parseInt(dose),
             total_quantity: parseInt(total),
-            day_of_weeks,
-            user_schedule_ids
+            user_schedule_ids,
+            routine_start_date,
+            interval_days: parseInt(interval_days)
         };
         
         // 데이터 콘솔에 출력
@@ -32,6 +40,7 @@ const SetMedicineTotal = ({route, navigation}) => {
         createRoutine(routineData)
             .then(response => {
                 console.log("루틴 생성 성공:", response);
+                navigation.getParent().goBack();
             })
             .catch(error => {
                 console.error("루틴 생성 실패:", error);
@@ -48,8 +57,12 @@ const SetMedicineTotal = ({route, navigation}) => {
             <ScrollView>
                 <View>
                     <TextContainer>
-                        <LargeText>약의 총 개수를 알려주세요</LargeText>
-                        <SmallText>메디지가 복용해야 할 약의 개수도 기억해 드릴게요</SmallText>
+                        <LargeText fontSizeMode={fontSizeMode}>
+                            약의 총 개수를 알려주세요
+                        </LargeText>
+                        <SmallText fontSizeMode={fontSizeMode}>
+                            메디지가 복용해야 할 약의 개수도 기억해 드릴게요
+                        </SmallText>
                     </TextContainer>
                     {/* 총 복용량 입력 */}
                     <Section>
@@ -82,38 +95,12 @@ const SetMedicineTotal = ({route, navigation}) => {
                 <Button 
                     title="저장하기" 
                     onPress={handleSaveRoutine}
-                    disabled={!total} // 총 개수가 입력되지 않으면 버튼 비활성화
+                    disabled={!total}
+                    bgColor={total ? themes.light.boxColor.buttonPrimary : themes.light.boxColor.inputSecondary}
+                    textColor={total ? themes.light.textColor.buttonText : themes.light.textColor.Primary30}
                 />
             </View>
         </Container>
-    );
-};
-
-// 입력 필드 컴포넌트
-const InputWithDelete = ({
-    value,
-    onChangeText,
-    placeholder,
-    keyboardType = 'default',
-}) => {
-    return (
-        <InputContainer>
-            <StyledInput
-                placeholder={placeholder}
-                value={value}
-                onChangeText={onChangeText}
-                keyboardType={keyboardType}
-            />
-            {value.length > 0 && (
-                <DeleteButton onPress={() => onChangeText('')}>
-                    <OtherIcons.deleteCircle
-                        width={15}
-                        height={15}
-                        style={{ color: themes.light.textColor.Primary20 }}
-                    />
-                </DeleteButton>
-            )}
-        </InputContainer>
     );
 };
 
@@ -128,38 +115,18 @@ const TextContainer = styled.View`
 `;
 
 const LargeText = styled.Text`
-    font-size: ${FontSizes.title.default};
+    font-size: ${({fontSizeMode}) => FontSizes.title[fontSizeMode]};
     font-family: ${'KimjungchulGothic-Bold'};
     color: ${themes.light.textColor.textPrimary};
 `;
 const SmallText = styled.Text`
-    font-size: ${FontSizes.body.default};
+    font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
     font-family: ${'Pretendard-Midium'};
     color: ${themes.light.textColor.Primary50};
 `;
 
 const Section = styled.View`
     padding: 0 20px;
-`;
-
-const InputContainer = styled.View`
-  flex-direction: row;
-  align-items: center;
-  background-color: ${themes.light.boxColor.inputPrimary};
-  border-radius: 10px;
-  padding: 0 15px;
-`;
-
-const StyledInput = styled.TextInput`
-  flex: 1;
-  padding: 18px 0;
-  font-family: 'Pretendard-SemiBold';
-  font-size: ${FontSizes.body.default};
-  color: ${themes.light.textColor.textPrimary};
-`;
-
-const DeleteButton = styled.TouchableOpacity`
-  padding: 5px;
 `;
 
 export default SetMedicineTotal;

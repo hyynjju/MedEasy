@@ -1,18 +1,19 @@
 import React, {useState, useEffect} from 'react';
 import styled from 'styled-components/native';
 import {View, ScrollView} from 'react-native';
-import {ProgressBar} from '../../components';
+import {ProgressBar, InputWithDelete} from '../../components';
 import {themes} from './../../styles';
-import {OtherIcons} from '../../../assets/icons';
 import {ModalHeader, Button} from '../../components';
 import FontSizes from '../../../assets/fonts/fontSizes';
+import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 
 const SetMedicineName = ({route, navigation}) => {
   const {item} = route.params;
+  const {fontSizeMode} = useFontSize();
   const [medicine, setMedicine] = useState(null);
   const [medicineName, setMedicineName] = useState('');
 
-  const progress = '20%';
+  const progress = '16.66%';
 
   const handleNext = () => {
     if (!medicine || !medicine.item_id) {
@@ -31,7 +32,7 @@ const SetMedicineName = ({route, navigation}) => {
       console.log('약 데이터:', item);
       // API 응답 데이터 필드를 기존 앱 구조에 맞게 매핑
       const mappedMedicine = {
-        item_id: item.id, // id를 item_id로 매핑
+        item_id: item.item_id, // id
         item_name: item.item_name, // 약 이름
         entp_name: item.entp_name, // 제조사 이름
         class_name: item.class_name, // 약 분류
@@ -67,8 +68,12 @@ const SetMedicineName = ({route, navigation}) => {
       <ScrollView>
         <View>
           <TextContainer>
-            <LargeText>약 이름을 바꿀 수 있어요</LargeText>
-            <SmallText>메디지가 기억하기 쉬운 이름으로 불러드릴게요!</SmallText>
+            <LargeText fontSizeMode={fontSizeMode}>
+              약 이름을 바꿀 수 있어요
+            </LargeText>
+            <SmallText fontSizeMode={fontSizeMode}>
+              메디지가 기억하기 쉬운 이름으로 불러드릴게요!
+            </SmallText>
           </TextContainer>
           {/* 별명 */}
           <Section>
@@ -98,35 +103,6 @@ const SetMedicineName = ({route, navigation}) => {
   );
 };
 
-// 입력 필드 컴포넌트
-const InputWithDelete = ({
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = 'default',
-}) => {
-  return (
-    <InputContainer>
-      <StyledInput
-        placeholder={placeholder}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-        returnKeyType="done"
-      />
-      {value.length > 0 && (
-        <DeleteButton onPress={() => onChangeText('')}>
-          <OtherIcons.deleteCircle
-            width={15}
-            height={15}
-            style={{color: themes.light.textColor.Primary20}}
-          />
-        </DeleteButton>
-      )}
-    </InputContainer>
-  );
-};
-
 const Container = styled.KeyboardAvoidingView`
   flex: 1;
   background-color: ${themes.light.bgColor.bgPrimary};
@@ -138,38 +114,18 @@ const TextContainer = styled.View`
 `;
 
 const LargeText = styled.Text`
-  font-size: ${FontSizes.title.default};
+  font-size: ${({fontSizeMode}) => FontSizes.title[fontSizeMode]};
   font-family: ${'KimjungchulGothic-Bold'};
   color: ${themes.light.textColor.textPrimary};
 `;
 const SmallText = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   font-family: ${'Pretendard-Midium'};
   color: ${themes.light.textColor.Primary50};
 `;
 
 const Section = styled.View`
   padding: 0 20px;
-`;
-
-const InputContainer = styled.View`
-  flex-direction: row;
-  align-items: center;
-  background-color: ${themes.light.boxColor.inputPrimary};
-  border-radius: 10px;
-  padding: 0 15px;
-`;
-
-const StyledInput = styled.TextInput`
-  flex: 1;
-  padding: 18px 0;
-  font-family: 'Pretendard-SemiBold';
-  font-size: ${FontSizes.body.default};
-  color: ${themes.light.textColor.textPrimary};
-`;
-
-const DeleteButton = styled.TouchableOpacity`
-  padding: 5px;
 `;
 
 export default SetMedicineName;

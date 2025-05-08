@@ -10,14 +10,17 @@ export const SearchResultsList = ({
   handleSearchResultPress,
   onEndReached,
   onEndReachedThreshold = 0.5,
-  refreshing
+  refreshing,
+  footer = true,
 }) => {
   return (
     <Container>
       {searchResults.length > 0 && (
         <FlatList
           data={searchResults}
-          keyExtractor={(item, index) => item.uniqueKey || `item_${item.original_id}_${index}`}
+          keyExtractor={(item, index) =>
+            item.uniqueKey || `item_${item.original_id}_${index}`
+          }
           renderItem={({item}) => (
             <SearchResultItem item={item} onPress={handleSearchResultPress} />
           )}
@@ -27,10 +30,15 @@ export const SearchResultsList = ({
             <>
               {refreshing && (
                 <LoadingContainer>
-                  <ActivityIndicator size="small" color={themes.light.pointColor.Primary} />
+                  <ActivityIndicator
+                    size="small"
+                    color={themes.light.pointColor.Primary}
+                  />
                 </LoadingContainer>
               )}
-              <Footer />
+              {footer && (
+                 <Footer />
+              )}
             </>
           )}
         />
@@ -44,6 +52,6 @@ const Container = styled.View`
 `;
 
 const LoadingContainer = styled.View`
-  padding: 10px;
+  padding: 0px;
   align-items: center;
 `;

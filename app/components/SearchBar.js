@@ -4,6 +4,7 @@ import {TouchableOpacity} from 'react-native';
 import {themes} from './../styles';
 import {OtherIcons} from './../../assets/icons';
 import FontSizes from '../../assets/fonts/fontSizes';
+import { useFontSize } from '../../assets/fonts/FontSizeContext';
 
 const SearchBarContainer = styled.View`
   height: 44px;
@@ -13,11 +14,11 @@ const SearchBarContainer = styled.View`
   border-radius: 10px;
   background-color: ${({theme}) => themes.light.boxColor.inputSecondary};
   flex: 1;
-  padding: 13px 20px 13px 15px;
+  padding: 13px 0 13px 15px;
 `;
 
 const SearchInput = styled.TextInput`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
   font-family: 'Pretendard-SemiBold';
   flex: 1;
 `;
@@ -28,16 +29,19 @@ const SearchButton = styled(TouchableOpacity)`
 `;
 
 const SearchBar = ({searchQuery, setSearchQuery, onSearch, placeholder}) => {
+  const { fontSizeMode } = useFontSize();
+  
   return (
     <SearchBarContainer>
       <SearchInput
+      fontSizeMode={fontSizeMode}
         placeholder={placeholder}
         value={searchQuery}
         onChangeText={setSearchQuery}
         onSubmitEditing={onSearch}
         returnKeyType="search"
       />
-      <SearchButton onPress={onSearch}>
+      <SearchButton style={{padding: 14, marginTop: 7}} onPress={onSearch}>
         <OtherIcons.search
           width={17.5}
           height={17.5}

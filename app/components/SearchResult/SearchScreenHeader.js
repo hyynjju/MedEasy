@@ -1,10 +1,11 @@
 import React from 'react';
-import {TouchableOpacity, View} from 'react-native';
+import {TouchableOpacity} from 'react-native';
 import styled from 'styled-components/native';
 import {themes} from './../../styles';
 import {HeaderIcons, OtherIcons} from '../../../assets/icons';
 import {FilterButton} from './FilterButton';
 import FontSizes from '../../../assets/fonts/fontSizes';
+import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 
 const {chevron: ChevronIcon} = HeaderIcons;
 
@@ -21,10 +22,12 @@ export const SearchScreenHeader = ({
   getFilterButtonText,
   renderFilterButtonIcon,
 }) => {
+  const { fontSizeMode } = useFontSize();
+  
   return (
     <HeaderContainer>
       <ChevronAndSearchContainer>
-        <ChevronIconButton onPress={onBackPress}>
+        <ChevronIconButton style={{padding: 12}} onPress={onBackPress}>
           <ChevronIcon
             height={17}
             width={17}
@@ -32,7 +35,7 @@ export const SearchScreenHeader = ({
           />
         </ChevronIconButton>
         <SearchBarTouchable onPress={onSearchPress}>
-          <SearchQueryText>{searchQuery}</SearchQueryText>
+          <SearchQueryText fontSizeMode={fontSizeMode}>{searchQuery}</SearchQueryText>
           <SearchIconContainer>
             <OtherIcons.search
               width={17.5}
@@ -45,7 +48,7 @@ export const SearchScreenHeader = ({
 
       {searchQuery && (
         <FeatureSearchContainer>
-          <FeatureSearchText>특징 검색</FeatureSearchText>
+          <FeatureSearchText fontSizeMode={fontSizeMode}>특징 검색</FeatureSearchText>
           <ScrollableFilterContainer
             horizontal={true}
             showsHorizontalScrollIndicator={false}>
@@ -84,7 +87,6 @@ const ChevronAndSearchContainer = styled.View`
   flex-direction: row;
   align-items: center;
   padding-right: 15px;
-  padding-left: 12px;
 `;
 
 const SearchBarTouchable = styled(TouchableOpacity)`
@@ -95,11 +97,11 @@ const SearchBarTouchable = styled(TouchableOpacity)`
   border-radius: 10px;
   background-color: ${({theme}) => themes.light.boxColor.inputSecondary};
   flex: 1;
-  padding: 13px 20px 13px 15px;
+  padding: 11px 20px 11px 15px;
 `;
 
 const SearchQueryText = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
   font-family: 'Pretendard-SemiBold';
   color: ${themes.light.textColor.textPrimary};
 `;
@@ -109,20 +111,17 @@ const SearchIconContainer = styled.View`
   align-items: center;
 `;
 
-const ChevronIconButton = styled(TouchableOpacity)`
-  margin-right: 12px;
-`;
+const ChevronIconButton = styled(TouchableOpacity)``;
 
 const FeatureSearchContainer = styled.View`
   margin-top: 15px;
   padding-left: 20px;
   flex-direction: row;
   align-items: center;
-  padding-bottom: 7px;
 `;
 
 const FeatureSearchText = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
   font-family: 'Pretendard-SemiBold';
   margin-right: 11px;
 `;

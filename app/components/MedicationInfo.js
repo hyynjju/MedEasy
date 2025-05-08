@@ -1,39 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components/native';
 import { pointColor, themes } from '../styles';
 import KarteIcon from '../../assets/icons/karte.svg';
 import LogoIcon from '../../assets/icons/logo/logo.svg';
 import FontSizes from '../../assets/fonts/fontSizes';
+import { useFontSize } from '../../assets/fonts/FontSizeContext';
 import { getUserUsageDays } from '../api/user';
+import { getUserMedicineCount } from '../api/user';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
-const MedicationInfo = ({ medicationCount }) => {
+const MedicationInfo = () => {
+  const navigation = useNavigation();
+  const {fontSizeMode} = useFontSize();
   const [daysSinceJoin, setDaysSinceJoin] = useState(0);
+  const [medicineCount, setMedicineCount] = useState(0);
   
-  useEffect(() => {
-    // 사용자 사용 일수 가져오기
-    const fetchUserUsageDays = async () => {
-      try {
-        const response = await getUserUsageDays();
-        const usageData = response.data?.body || response.data;
-        
-        if (usageData && usageData.usage_days !== undefined) {
-          setDaysSinceJoin(usageData.usage_days);
-        }
-      } catch (error) {
-        console.error('사용자 사용 일수 가져오기 실패:', error);
+  const fetchData = useCallback(async () => {
+    try {
+      const [usageResponse, medicineResponse] = await Promise.all([
+        getUserUsageDays(),
+        getUserMedicineCount()
+      ]);
+
+      const usageData = usageResponse.data?.body || usageResponse.data;
+      const countData = medicineResponse.data?.body || medicineResponse.data;
+
+      if (usageData?.usage_days !== undefined) {
+        setDaysSinceJoin(usageData.usage_days);
       }
-    };
-    
-    fetchUserUsageDays();
+      if (countData?.medicine_count !== undefined) {
+        setMedicineCount(countData.medicine_count);
+      }
+    } catch (error) {
+      console.error('데이터 가져오기 실패:', error);
+    }
   }, []);
+
+  // 🔹 화면이 포커스될 때마다 fetchData 실행
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  const handleMedicineList = () => {
+    navigation.navigate('MedicineList');
+  };
   
   return (
     <Container>
       <BGStyle />
       <DaysSinceMedication>
-        <WithMedeasy>메디지와 함께</WithMedeasy>
-        <InfoText>약 챙겨먹은지 </InfoText>
-        <InfoNum>{daysSinceJoin}일째</InfoNum>
+        <TextContainer>
+          <WithMedeasy fontSizeMode={fontSizeMode}>메디지와 함께</WithMedeasy>
+          <InfoText fontSizeMode={fontSizeMode}>약 챙겨먹은지 </InfoText>
+          <InfoNum fontSizeMode={fontSizeMode}>{daysSinceJoin}일째</InfoNum>
+        </TextContainer>
         <IconWrapper>
           <KarteIcon
             width={90}
@@ -42,10 +64,12 @@ const MedicationInfo = ({ medicationCount }) => {
           />
         </IconWrapper>
       </DaysSinceMedication>
-      <MedicationCount>
-        <WithMedeasy>메디지와 함께</WithMedeasy>
-        <InfoText>복용중인 약 </InfoText>
-        <InfoNum>{medicationCount}개</InfoNum>
+      <MedicationCount onPress={handleMedicineList}>
+        <TextContainer>
+          <WithMedeasy fontSizeMode={fontSizeMode}>메디지와 함께</WithMedeasy>
+          <InfoText fontSizeMode={fontSizeMode}>복용중인 약 </InfoText>
+          <InfoNum fontSizeMode={fontSizeMode}>{medicineCount}개</InfoNum>
+        </TextContainer>
         <IconWrapper>
           <LogoIcon style={{ color: themes.light.boxColor.tagDetailPrimary }} />
         </IconWrapper>
@@ -82,13 +106,18 @@ const DaysSinceMedication = styled.View`
   overflow: hidden;
 `;
 
-const MedicationCount = styled.View`
+const MedicationCount = styled.TouchableOpacity`
   background-color: ${pointColor.pointPrimaryDark};
   padding: 15px;
   width: 49%;
   aspect-ratio: 1;
   border-radius: 10px;
   overflow: hidden;
+`;
+
+const TextContainer = styled.View`
+  position: relative;
+  z-index: 1;
 `;
 
 const IconWrapper = styled.View`
@@ -101,19 +130,19 @@ const IconWrapper = styled.View`
 
 const WithMedeasy = styled.Text`
   font-family: 'Pretendard-Medium';
-  font-size: ${FontSizes.caption.default};
+  font-size: ${({fontSizeMode}) => FontSizes.caption[fontSizeMode]}px;
   color: ${themes.light.textColor.buttonText};
   padding-bottom: 10px;
 `;
 
 const InfoText = styled.Text`
-  font-size: ${FontSizes.heading.default};
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
   font-family: 'KimjungchulGothic-Bold';
   color: ${themes.light.textColor.buttonText70};
 `;
 
 const InfoNum = styled.Text`
-  font-size: ${FontSizes.heading.default};
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
   font-family: 'KimjungchulGothic-Bold';
   color: ${themes.light.textColor.buttonText};
 `;

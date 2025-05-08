@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components/native';
 import { Modal, View } from 'react-native';
-import {themes} from '../styles';
+import { themes } from '../styles';
 import { Button } from '../components';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import FontSizes from '../../assets/fonts/fontSizes';
+import { useFontSize } from '../../assets/fonts/FontSizeContext';
 
 const DateTimePickerModal = ({
   visible,
@@ -15,16 +16,24 @@ const DateTimePickerModal = ({
   onChange,
   title,
 }) => {
+
+  const { fontSizeMode } = useFontSize();
+
+  // 선택 확인 버튼 핸들러
+  const handleConfirm = () => {
+    onConfirm();
+  };
+
   return (
     <Modal
       animationType="slide"
       transparent={true}
       visible={visible}
       onRequestClose={onClose}>
-      <ModalContainer>
-        <ModalContent>
+      <ModalContainer onStartShouldSetResponder={() => true} onResponderRelease={onClose}>
+        <ModalContent onStartShouldSetResponder={() => true}>
           <TopBar />
-          <ModalTitle>{title}</ModalTitle>
+          <ModalTitle fontSizeMode={fontSizeMode}>{title}</ModalTitle>
           <View style={{ margin: 30 }}>
             <DateTimePicker
               value={date}
@@ -34,7 +43,7 @@ const DateTimePickerModal = ({
               locale="ko"
             />
           </View>
-          <Button title="확인" onPress={onConfirm} />
+          <Button title="확인" onPress={handleConfirm} />
         </ModalContent>
       </ModalContainer>
     </Modal>
@@ -44,11 +53,11 @@ const DateTimePickerModal = ({
 const ModalContainer = styled.View`
   flex: 1;
   background-color: ${themes.light.bgColor.modalBG};
+  justify-content: flex-end;
 `;
 
 const ModalContent = styled.View`
   width: 100%;
-  margin-top: auto;
   background-color: ${themes.light.bgColor.bgPrimary};
   border-top-left-radius: 40px;
   border-top-right-radius: 40px;
@@ -68,8 +77,8 @@ const TopBar = styled.View`
 
 const ModalTitle = styled.Text`
   font-family: 'KimjungchulGothic-Bold';
-  font-size: ${FontSizes.title.default};
+  font-size: ${({ fontSizeMode }) => FontSizes.title[fontSizeMode]}px;
   color: ${themes.light.textColor.textPrimary};
 `;
 
-export {DateTimePickerModal};
+export { DateTimePickerModal };

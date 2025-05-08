@@ -4,11 +4,12 @@ import {View, TouchableOpacity, Alert} from 'react-native';
 import {themes} from './../../styles';
 import {ModalHeader, Button, DateTimePickerModal} from '../../components';
 import FontSizes from '../../../assets/fonts/fontSizes';
+import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 import {RoutineIcons} from '../../../assets/icons';
 import {useNavigation} from '@react-navigation/native';
 
 import { useSignUp } from '../../api/context/SignUpContext';
-import { getUserSchedule } from '../../api/user';
+import { getUser, getUserSchedule } from '../../api/user';
 import { updateUserSchedule } from '../../api/user';
 
 const {
@@ -18,15 +19,15 @@ const {
   homeRoutine: HomeRoutineIcon,
 } = RoutineIcons;
 
-const TimeSettingItem = ({icon, title, time, onPress}) => {
+const TimeSettingItem = ({icon, title, time, onPress, fontSizeMode}) => {
   return (
     <View style={{gap: 15}}>
       <IconTextContainer>
         {icon}
-        <TimeSettingText>{title}</TimeSettingText>
+        <TimeSettingText fontSizeMode={fontSizeMode}>{title}</TimeSettingText>
       </IconTextContainer>
       <TimeButton onPress={onPress}>
-        <TimeButtonText>{time}</TimeButtonText>
+        <TimeButtonText fontSizeMode={fontSizeMode}>{time}</TimeButtonText>
       </TimeButton>
     </View>
   );
@@ -35,6 +36,9 @@ const TimeSettingItem = ({icon, title, time, onPress}) => {
 const SetRoutineTime = () => {
   const {signUpData} = useSignUp();
   const navigation = useNavigation();
+  const {fontSizeMode} = useFontSize();
+
+  const [userName, setUserName] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [currentSettingType, setCurrentSettingType] = useState('');
@@ -51,12 +55,12 @@ const SetRoutineTime = () => {
   const [dinnerDate, setDinnerDate] = useState(null);
   const [bedDate, setBedDate] = useState(null);
   
-  // scheduleIds 저장
-  const [scheduleIds, setScheduleIds] = useState({
-    breakfast: null,
-    lunch: null,
-    dinner: null,
-    bedtime: null
+  // 일정 데이터 저장
+  const [scheduleData, setScheduleData] = useState({
+    morning: { id: null, name: '아침 식사' },
+    lunch: { id: null, name: '점심 식사' },
+    dinner: { id: null, name: '저녁 식사' },
+    bedtime: { id: null, name: '취침 시간' }
   });
 
   // API에서 받아온 시간을 파싱하는 함수
@@ -78,34 +82,66 @@ const SetRoutineTime = () => {
     return `${hours}:${minutes}:00`;
   };
 
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const response = await getUser();
+        const userData = response.data.body;
+        setUserName(userData.name || '');
+      } catch (error) {
+        console.error('유저 이름 가져오기 실패:', error);
+      }
+    };
+  
+    fetchUserName();
+  }, []);
+
   // 컴포넌트 마운트 시 사용자 일정 가져오기
   useEffect(() => {
     const fetchUserSchedule = async () => {
       try {
         const getData = await getUserSchedule();
-        const scheduleData = getData.data;
-        console.log('사용자 일정 데이터:', scheduleData);
+        const responseData = getData.data;
+        console.log('사용자 일정 데이터:', responseData);
         
         // API에서 받아온 시간으로 디폴트 시간 설정
-        if (scheduleData && scheduleData.body && Array.isArray(scheduleData.body)) {
-          // 각 일정 데이터 찾기
-          const breakfastSchedule = scheduleData.body.find(item => item.name.includes('아침'));
-          const lunchSchedule = scheduleData.body.find(item => item.name.includes('점심'));
-          const dinnerSchedule = scheduleData.body.find(item => item.name.includes('저녁'));
+        if (responseData && responseData.body && Array.isArray(responseData.body)) {
+          // 배열 위치 기반으로 일정 데이터 가져오기 (순서가 일정하다고 가정)
+          const schedules = responseData.body;
           
-          // ID 저장
-          const newScheduleIds = {
-            breakfast: breakfastSchedule?.user_schedule_id || null,
-            lunch: lunchSchedule?.user_schedule_id || null,
-            dinner: dinnerSchedule?.user_schedule_id || null,
-            bedtime: null // 취침시간은 API 데이터에 없음
+          // 순서 기반 매핑 (아침, 점심, 저녁, 취침)
+          const morningSchedule = schedules[0]; // 첫 번째 일정은 아침
+          const lunchSchedule = schedules[1];   // 두 번째 일정은 점심
+          const dinnerSchedule = schedules[2];  // 세 번째 일정은 저녁
+          const bedtimeSchedule = schedules[3]; // 네 번째 일정은 취침
+          
+          // 일정 데이터 저장 (ID와 이름)
+          const newScheduleData = {
+            morning: {
+              id: morningSchedule?.user_schedule_id || null,
+              name: morningSchedule?.name || '아침 식사'
+            },
+            lunch: {
+              id: lunchSchedule?.user_schedule_id || null,
+              name: lunchSchedule?.name || '점심 식사'
+            },
+            dinner: {
+              id: dinnerSchedule?.user_schedule_id || null,
+              name: dinnerSchedule?.name || '저녁 식사'
+            },
+            bedtime: {
+              id: bedtimeSchedule?.user_schedule_id || null,
+              name: bedtimeSchedule?.name || '취침 시간'
+            }
           };
-          setScheduleIds(newScheduleIds);
-          console.log('스케줄 ID:', newScheduleIds);
+          
+          setScheduleData(newScheduleData);
+          
+          console.log('일정 데이터:', newScheduleData);
           
           // 시간 설정
-          if (breakfastSchedule) {
-            const parsedDate = parseApiTime(breakfastSchedule.take_time);
+          if (morningSchedule) {
+            const parsedDate = parseApiTime(morningSchedule.take_time);
             if (parsedDate) {
               setBreakfastDate(parsedDate);
               setBreakfastTime(formatTime(parsedDate));
@@ -127,6 +163,14 @@ const SetRoutineTime = () => {
               setDinnerTime(formatTime(parsedDate));
             }
           }
+          
+          if (bedtimeSchedule) {
+            const parsedDate = parseApiTime(bedtimeSchedule.take_time);
+            if (parsedDate) {
+              setBedDate(parsedDate);
+              setBedTime(formatTime(parsedDate));
+            }
+          }
         }
       } catch (error) {
         console.error('사용자 일정 가져오기 실패:', error);
@@ -144,33 +188,43 @@ const SetRoutineTime = () => {
       const updatePromises = [];
       
       // 아침 식사 업데이트
-      if (scheduleIds.breakfast && breakfastDate) {
+      if (scheduleData.morning.id && breakfastDate) {
         const breakfastData = {
-          user_schedule_id: scheduleIds.breakfast,
-          schedule_name: "아침 식사 후",
+          user_schedule_id: scheduleData.morning.id,
+          schedule_name: scheduleData.morning.name,
           take_time: formatTimeForApi(breakfastDate)
         };
         updatePromises.push(updateUserSchedule(breakfastData));
       }
       
       // 점심 식사 업데이트
-      if (scheduleIds.lunch && lunchDate) {
+      if (scheduleData.lunch.id && lunchDate) {
         const lunchData = {
-          user_schedule_id: scheduleIds.lunch,
-          schedule_name: "점심 식사 후",
+          user_schedule_id: scheduleData.lunch.id,
+          schedule_name: scheduleData.lunch.name,
           take_time: formatTimeForApi(lunchDate)
         };
         updatePromises.push(updateUserSchedule(lunchData));
       }
       
       // 저녁 식사 업데이트
-      if (scheduleIds.dinner && dinnerDate) {
+      if (scheduleData.dinner.id && dinnerDate) {
         const dinnerData = {
-          user_schedule_id: scheduleIds.dinner,
-          schedule_name: "저녁 식사 후",
+          user_schedule_id: scheduleData.dinner.id,
+          schedule_name: scheduleData.dinner.name,
           take_time: formatTimeForApi(dinnerDate)
         };
         updatePromises.push(updateUserSchedule(dinnerData));
+      }
+      
+      // 취침 시간 업데이트
+      if (scheduleData.bedtime.id && bedDate) {
+        const bedtimeData = {
+          user_schedule_id: scheduleData.bedtime.id,
+          schedule_name: scheduleData.bedtime.name,
+          take_time: formatTimeForApi(bedDate)
+        };
+        updatePromises.push(updateUserSchedule(bedtimeData));
       }
       
       // Promise.all을 사용하여 모든 업데이트 요청을 병렬로 처리
@@ -234,22 +288,23 @@ const SetRoutineTime = () => {
     // 시간 선택기를 열 때 현재 설정된 시간으로 초기화
     let initialTime;
     
+    // 설정된 시간이 있으면 사용, 없으면 디폴트 설정
     switch (type) {
       case '아침식사':
-        initialTime = breakfastDate || new Date();
-        initialTime.setHours(8, 0, 0, 0);
+        initialTime = breakfastDate ? new Date(breakfastDate) : new Date();
+        if (!breakfastDate) initialTime.setHours(8, 0, 0, 0);
         break;
       case '점심식사':
-        initialTime = lunchDate || new Date();
-        initialTime.setHours(12, 0, 0, 0);
+        initialTime = lunchDate ? new Date(lunchDate) : new Date();
+        if (!lunchDate) initialTime.setHours(12, 0, 0, 0);
         break;
       case '저녁식사':
-        initialTime = dinnerDate || new Date();
-        initialTime.setHours(18, 0, 0, 0);
+        initialTime = dinnerDate ? new Date(dinnerDate) : new Date();
+        if (!dinnerDate) initialTime.setHours(18, 0, 0, 0);
         break;
       case '취침시간':
-        initialTime = bedDate || new Date();
-        initialTime.setHours(22, 0, 0, 0);
+        initialTime = bedDate ? new Date(bedDate) : new Date();
+        if (!bedDate) initialTime.setHours(22, 0, 0, 0);
         break;
       default:
         initialTime = new Date();
@@ -312,26 +367,32 @@ const SetRoutineTime = () => {
         style={{
           paddingTop: 39,
           paddingLeft: 30,
-          paddingBottom: 53,
+          paddingBottom: 30,
           gap: 7,
         }}>
-        <Title>{signUpData.firstName}님의 하루 일과를 알려주세요.</Title>
-        <Subtitle>메디지가 일정에 맞춰 복약 알림을 보내드릴게요!</Subtitle>
+        <Title fontSizeMode={fontSizeMode}>
+          {userName}님의 하루 일과를 알려주세요.
+        </Title>
+        <Subtitle fontSizeMode={fontSizeMode}>
+          메디지가 일정에 맞춰 복약 알림을 보내드릴게요!
+        </Subtitle>
       </View>
 
       <View style={{paddingHorizontal: 20, gap: 20}}>
         <TimeSettingItem
           icon={<CupIcon width={20} height={20} style={{color: '#A0CC88'}} />}
-          title="아침 식사"
+          title={scheduleData.morning.name}
           time={breakfastTime}
           onPress={() => openTimePicker('아침식사')}
+          fontSizeMode={fontSizeMode}
         />
 
         <TimeSettingItem
           icon={<SunIcon width={20} height={20} style={{color: '#FF8B25'}} />}
-          title="점심 식사"
+          title={scheduleData.lunch.name}
           time={lunchTime}
           onPress={() => openTimePicker('점심식사')}
+          fontSizeMode={fontSizeMode}
         />
 
         <TimeSettingItem
@@ -342,16 +403,18 @@ const SetRoutineTime = () => {
               style={{color: '#A5BEF0'}}
             />
           }
-          title="저녁 식사"
+          title={scheduleData.dinner.name}
           time={dinnerTime}
           onPress={() => openTimePicker('저녁식사')}
+          fontSizeMode={fontSizeMode}
         />
 
         <TimeSettingItem
           icon={<MoonIcon width={20} height={20} style={{color: '#FED359'}} />}
-          title="취침 시간"
+          title={scheduleData.bedtime.name}
           time={bedTime}
           onPress={() => openTimePicker('취침시간')}
+          fontSizeMode={fontSizeMode}
         />
       </View>
 
@@ -388,13 +451,13 @@ const Container = styled.View`
 `;
 
 const Title = styled.Text`
-  font-size: ${FontSizes.title.default};
+  font-size: ${({fontSizeMode}) => FontSizes.title[fontSizeMode]}px;
   font-family: 'KimjungchulGothic-Bold';
   color: ${themes.light.textColor.textPrimary};
 `;
 
 const Subtitle = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
   font-family: 'Pretendard-Medium';
   color: ${themes.light.textColor.Primary50};
 `;
@@ -406,7 +469,7 @@ const IconTextContainer = styled.View`
 `;
 
 const TimeSettingText = styled.Text`
-  font-size: ${FontSizes.heading.default};
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
   font-family: 'Pretendard-Bold';
   color: ${themes.light.textColor.textPrimary};
 `;
@@ -419,7 +482,7 @@ const TimeButton = styled(TouchableOpacity)`
 `;
 
 const TimeButtonText = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
   font-family: 'Pretendard-SemiBold';
   color: ${themes.light.textColor.textPrimary};
 `;
