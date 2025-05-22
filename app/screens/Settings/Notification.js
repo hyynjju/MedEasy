@@ -1,15 +1,72 @@
-import React, {useState} from 'react';
-import {Switch, View} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {Switch, View, Alert} from 'react-native';
 import styled from 'styled-components/native';
 import {themes} from '../../styles';
 import FontSizes from '../../../assets/fonts/fontSizes';
 import {Header} from '../../components';
 import {LogoIcons} from '../../../assets/icons';
 import {BlurView} from '@react-native-community/blur';
+import {useFontSize} from '../../../assets/fonts/FontSizeContext';
+import {
+  getNotificationAgreed,
+  updateNotificationAgreement
+} from '../../api/storage';
 
 const Notification = () => {
-  const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled(previousState => !previousState);
+  const [isEnabled, setIsEnabled] = useState(true); // 기본값은 true
+  const [isLoading, setIsLoading] = useState(false); // 로딩 상태
+  const {fontSizeMode} = useFontSize();
+  
+  // 컴포넌트 마운트 시 알림 동의 상태 로드
+  useEffect(() => {
+    const loadNotificationState = async () => {
+      try {
+        // 로컬 저장소에서 알림 상태 가져오기
+        const agreed = await getNotificationAgreed();
+        setIsEnabled(agreed);
+      } catch (error) {
+        console.error('알림 상태 로딩 오류:', error);
+      }
+    };
+    
+    loadNotificationState();
+  }, []);
+
+  // 알림 토글 처리
+  const toggleSwitch = async () => {
+    if (isLoading) return; // 로딩 중에는 토글 방지
+    
+    const newState = !isEnabled;
+    setIsLoading(true); // 로딩 상태 시작
+    
+    try {
+      // UI 상태 낙관적 업데이트
+      setIsEnabled(newState);
+      
+      // API 및 로컬 저장소 업데이트
+      const success = await updateNotificationAgreement(newState);
+      
+      // 실패 시 UI 상태 되돌리기 및 오류 표시
+      if (!success) {
+        setIsEnabled(isEnabled);
+        throw new Error('알림 설정을 저장하지 못했습니다.');
+      }
+    } catch (error) {
+      console.error('알림 설정 변경 오류:', error);
+      
+      // UI 상태 복원
+      setIsEnabled(isEnabled);
+      
+      // 오류 알림
+      Alert.alert(
+        '알림 설정 실패',
+        '알림 설정을 변경하는 중 오류가 발생했습니다. 다시 시도해주세요.',
+        [{text: '확인'}]
+      );
+    } finally {
+      setIsLoading(false); // 로딩 상태 종료
+    }
+  };
 
   const MockNotification = ({title, sub}) => {
     return (
@@ -42,8 +99,8 @@ const Notification = () => {
     <Container>
       <Header>알림 설정</Header>
       <TitleContainer>
-        <LargeText>복약 알림 설정</LargeText>
-        <SmallText>약을 잊지 않도록 정해진 시간에 알려드릴게요.</SmallText>
+        <LargeText fontSizeMode={fontSizeMode}>복약 알림 설정</LargeText>
+        <SmallText fontSizeMode={fontSizeMode}>약을 잊지 않도록 정해진 시간에 알려드릴게요.</SmallText>
       </TitleContainer>
       <MockImageArea>
         <PhoneMockup />
@@ -60,11 +117,13 @@ const Notification = () => {
         </NotificationContainer>
       </MockImageArea>
       <SwitchWrapper>
-        <Label>복약 알림</Label>
+        <Label fontSizeMode={fontSizeMode}>복약 알림</Label>
         <StyledSwitch
           onValueChange={toggleSwitch}
           value={isEnabled}
+          disabled={isLoading}
           trackColor={{false: '#ccc', true: themes.light.pointColor.Primary}}
+          thumbColor={themes.light.bgColor.bgPrimary}
         />
       </SwitchWrapper>
     </Container>
@@ -75,10 +134,6 @@ const Container = styled.View`
   flex: 1;
   background-color: ${themes.light.bgColor.bgPrimary};
 `;
-const Main = styled.View`
-  flex: 1;
-  justify-content: space-between;
-`;
 
 const TitleContainer = styled.View`
   padding: 35px 30px 0;
@@ -86,13 +141,13 @@ const TitleContainer = styled.View`
 `;
 
 const LargeText = styled.Text`
-  font-size: ${FontSizes.title.default};
+  font-size: ${({fontSizeMode}) => FontSizes.title[fontSizeMode]};
   font-family: KimjungchulGothic-Bold;
   color: ${themes.light.textColor.textPrimary};
 `;
 
 const SmallText = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   font-family: Pretendard-Medium;
   color: ${themes.light.textColor.Primary50};
 `;
@@ -176,13 +231,14 @@ const SwitchWrapper = styled.View`
 `;
 
 const Label = styled.Text`
-  font-size: ${FontSizes.body.default};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   font-family: Pretendard-Medium;
   color: ${themes.light.textColor.textPrimary};
 `;
 
 const StyledSwitch = styled(Switch)`
   transform: scale(1.1);
+  opacity: ${({disabled}) => (disabled ? 0.7 : 1)};
 `;
 
 export default Notification;

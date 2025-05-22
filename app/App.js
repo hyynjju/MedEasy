@@ -2,6 +2,9 @@
 import firebase from '@react-native-firebase/app';
 import messaging from '@react-native-firebase/messaging';
 
+import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import {Alert, Platform, PermissionsAndroid, Linking, AppState} from 'react-native';
 
 import React, {useEffect, useState, useCallback} from 'react';
@@ -23,7 +26,6 @@ import SignUpStartScreen from './screens/SignUp/SignUpStart';
 import SignUpNameScreen from './screens/SignUp/SignUpName';
 import SignUpEmailScreen from './screens/SignUp/SignUpEmail';
 import SignUpPasswordScreen from './screens/SignUp/SignUpPassword';
-import SignUpDOBGenderScreen from './screens/SignUp/SignUpDOBGender';
 import SignInScreen from './screens/SignUp/SignIn';
 import NavigationBar from './components/NavigationBar';
 import SearchMedicineScreen from './screens/Search/SearchMedicine';
@@ -44,6 +46,9 @@ import SetMedicineDoseScreen from './screens/Routine/SetMedicineDose';
 import SetMedicineTotalScreen from './screens/Routine/SetMedicineTotal';
 import SetRoutineTimeScreen from './screens/Routine/SetRoutineTime';
 import MedicineListScreen from './screens/Settings/MedicineList';
+import AddCareTargetScreen from './screens/Care/AddCareTarget';
+import VerifyCodeScreen from './screens/Care/VerifyCode';
+import CareRoutineScreen from './screens/Care/CareRoutine';
 
 import {SignUpProvider} from './api/context/SignUpContext';
 import {FontSizeProvider} from './../assets/fonts/FontSizeContext';
@@ -52,6 +57,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {navigationRef} from './screens/Navigation/NavigationRef';
 import RoutineUrlService from './services/RoutineUrlService';
 import { setAuthToken } from './api';
+
+import { validateAndRefreshToken } from './api/services/tokenService';
 
 
 const RootStack = createStackNavigator();
@@ -68,10 +75,6 @@ const AuthNavigator = () => {
       <AuthStack.Screen
         name="SignUpPassword"
         component={SignUpPasswordScreen}
-      />
-      <AuthStack.Screen
-        name="SignUpDOBGender"
-        component={SignUpDOBGenderScreen}
       />
     </AuthStack.Navigator>
   );
@@ -256,24 +259,28 @@ const App = () => {
   useEffect(() => {
     const checkAutoLogin = async () => {
       try {
-        const token = await getAccessToken();
-        if (token && token !== 'undefined' && token.trim() !== '') {
-          console.log('[AutoLogin] 토큰 있음, NavigationBar로 이동');
-          setAuthToken(token); // axios 헤더 설정
+        // 토큰 유효성 검증 및 필요시 갱신
+        const isTokenValid = await validateAndRefreshToken();
+        
+        if (isTokenValid) {
+          console.log('[AutoLogin] 토큰 유효함, NavigationBar로 이동');
           setInitialScreen('NavigationBar');
         } else {
-          console.log('[AutoLogin] 토큰 없음, Auth로 이동');
+          console.log('[AutoLogin] 유효하지 않은 토큰, SignUpStart로 이동');
           setInitialScreen('Auth');
         }
       } catch (err) {
         console.error('자동 로그인 체크 실패:', err);
+        setInitialScreen('Auth'); // 에러 시에도 로그인 화면으로
       } finally {
-        setIsLoading(false);
+        // 스플래시 종료 시점: 자동 로그인 판단 완료 후
+        setTimeout(() => setIsLoading(false), 2000);
       }
     };
-
+  
     checkAutoLogin();
   }, []);
+  
 
   // URL 스킴 초기화 처리 - 앱 시작 시 한 번만 실행
   useEffect(() => {
@@ -339,15 +346,6 @@ const App = () => {
     );
   };
   
-  // 스플래시 화면 표시용 useEffect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-  
   // 스플래시 화면이 사라진 후 FCM 초기화를 위한 useEffect
   useEffect(() => {
     if (!isLoading && !permissionInitialized) {
@@ -395,100 +393,113 @@ const App = () => {
   }, [isLoading, refreshToken]);
 
   return (
-    <SafeAreaProvider>
-      <FontSizeProvider>
-        <SignUpProvider>
-          <NavigationContainer ref={navigationRef}>
-            {isLoading ? (
-              <Splash />
-            ) : (
-              <>
-                <RootStack.Navigator 
-                initialRouteName={initialScreen}
-                screenOptions={{headerShown: false}}>
-                  {/* 👥 회원가입 네비게이터 */}
-                  <RootStack.Screen name="Auth" component={AuthNavigator} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <FontSizeProvider>
+          <SignUpProvider>
+            <NavigationContainer ref={navigationRef}>
+              {isLoading ? (
+                <Splash />
+              ) : (
+                <>
+                  <RootStack.Navigator 
+                  initialRouteName={initialScreen}
+                  screenOptions={{headerShown: false}}>
+                    {/* 👥 회원가입 네비게이터 */}
+                    <RootStack.Screen name="Auth" component={AuthNavigator} />
+                    
+                    {/* 🔎 메인 네비게이션 */}
+                    <RootStack.Screen
+                      name="NavigationBar"
+                      component={NavigationBar}
+                    />
+
+                    {/* ⚙️ 설정 네비게이션 */}
+                    <RootStack.Screen name="SettingStack" component={SettingStack} />
+
+                    {/* 🖥️ 네비게이션바 없는 화면들 */}
+                    <RootStack.Screen
+                      name="SearchMedicine"
+                      component={SearchMedicineScreen}
+                    />
+                    <RootStack.Screen
+                      name="SearchMedicineResults"
+                      component={SearchMedicineResultsScreen}
+                    />
+                    <RootStack.Screen
+                      name="MedicineDetail"
+                      component={MedicineDetailScreen}
+                    />
+                    <RootStack.Screen
+                      name="MedicineImageDetail"
+                      component={MedicineImageDetailScreen}
+                    />
+                    <RootStack.Screen
+                      name="PrescriptionSearchResults"
+                      component={PrescriptionSearchResults}
+                    />
+                    <RootStack.Screen
+                      name="Notification"
+                      component={NotificationScreen}
+                    />
+                    <RootStack.Screen
+                      name="AddMedicineRoutine"
+                      component={AddMedicineRoutineScreen}
+                      options={{presentation: 'modal'}}
+                    />
+                    <RootStack.Screen
+                      name="AddHospitalVisit"
+                      component={AddHospitalVisitScreen}
+                      options={{presentation: 'modal'}}
+                    />
+                    <RootStack.Screen
+                      name="SetMedicineRoutine"
+                      component={SetMedicineRoutineScreen}
+                      options={{presentation: 'modal'}}
+                    />
+                    <RootStack.Screen
+                      name="RoutineModal"
+                      component={RoutineModalNavigator}
+                      options={{presentation: 'modal'}}
+                    />
+                    <RootStack.Screen
+                      name="SetRoutineTime"
+                      component={SetRoutineTimeScreen}
+                      options={{presentation: 'modal'}}
+                    />
+                    <RootStack.Screen
+                      name="MedicineList"
+                      component={MedicineListScreen}
+                    />
+                    <RootStack.Screen
+                      name="AddCareTarget"
+                      component={AddCareTargetScreen}
+                    />
+                    <RootStack.Screen
+                      name="VerifyCode"
+                      component={VerifyCodeScreen}
+                    />
+                    <RootStack.Screen
+                      name="CareRoutine"
+                      component={CareRoutineScreen}
+                    />
+                  </RootStack.Navigator>
                   
-                  {/* 🔎 메인 네비게이션 */}
-                  <RootStack.Screen
-                    name="NavigationBar"
-                    component={NavigationBar}
-                  />
-
-                  {/* ⚙️ 설정 네비게이션 */}
-                  <RootStack.Screen name="SettingStack" component={SettingStack} />
-
-                  {/* 🖥️ 네비게이션바 없는 화면들 */}
-                  <RootStack.Screen
-                    name="SearchMedicine"
-                    component={SearchMedicineScreen}
-                  />
-                  <RootStack.Screen
-                    name="SearchMedicineResults"
-                    component={SearchMedicineResultsScreen}
-                  />
-                  <RootStack.Screen
-                    name="MedicineDetail"
-                    component={MedicineDetailScreen}
-                  />
-                  <RootStack.Screen
-                    name="MedicineImageDetail"
-                    component={MedicineImageDetailScreen}
-                  />
-                  <RootStack.Screen
-                    name="PrescriptionSearchResults"
-                    component={PrescriptionSearchResults}
-                  />
-                  <RootStack.Screen
-                    name="Notification"
-                    component={NotificationScreen}
-                  />
-                  <RootStack.Screen
-                    name="AddMedicineRoutine"
-                    component={AddMedicineRoutineScreen}
-                    options={{presentation: 'modal'}}
-                  />
-                  <RootStack.Screen
-                    name="AddHospitalVisit"
-                    component={AddHospitalVisitScreen}
-                    options={{presentation: 'modal'}}
-                  />
-                  <RootStack.Screen
-                    name="SetMedicineRoutine"
-                    component={SetMedicineRoutineScreen}
-                    options={{presentation: 'modal'}}
-                  />
-                  <RootStack.Screen
-                    name="RoutineModal"
-                    component={RoutineModalNavigator}
-                    options={{presentation: 'modal'}}
-                  />
-                  <RootStack.Screen
-                    name="SetRoutineTime"
-                    component={SetRoutineTimeScreen}
-                    options={{presentation: 'modal'}}
-                  />
-                  <RootStack.Screen
-                    name="MedicineList"
-                    component={MedicineListScreen}
-                  />
-                </RootStack.Navigator>
-                
-                {/* 복약 체크 모달 - 기존 모달 컴포넌트 사용 */}
-                {isModalVisible && routineData && (
-                  <RoutineCheckModal 
-                    visible={isModalVisible} 
-                    onClose={closeModal} 
-                    routineData={routineData} 
-                  />
-                )}
-              </>
-            )}
-          </NavigationContainer>
-        </SignUpProvider>
-      </FontSizeProvider>
-    </SafeAreaProvider>
-    
+                  {/* 복약 체크 모달 - 기존 모달 컴포넌트 사용 */}
+                  {isModalVisible && routineData && (
+                    <RoutineCheckModal 
+                      visible={isModalVisible} 
+                      onClose={closeModal} 
+                      routineData={routineData} 
+                    />
+                  )}
+                </>
+              )}
+            </NavigationContainer>
+          </SignUpProvider>
+        </FontSizeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 

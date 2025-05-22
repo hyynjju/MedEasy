@@ -24,7 +24,7 @@ export const CameraSearchResultItem = ({item, onPress}) => {
             sizeType="small"
             colorType="resultPrimary"
             overflowMode="ellipsis"
-            maxWidth="80"
+            maxWidth="120"
           >
             {item.etc_otc_name || '정보 없음'}
           </Tag>
@@ -98,13 +98,13 @@ const InfoContainer = styled.View`
 `;
 
 const MedicineName = styled.Text`
-  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]};
   font-family: 'Pretendard-bold';
   color: ${themes.light.textColor.textPrimary};
 `;
 
 const Description = styled.Text`
-  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   font-family: 'Pretendard-medium';
   color: ${themes.light.textColor.Primary50};
 `;

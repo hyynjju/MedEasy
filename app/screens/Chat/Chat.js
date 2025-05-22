@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import styled from 'styled-components/native';
 import {FlatList, KeyboardAvoidingView, View} from 'react-native';
-import ChatInfoModal from './ChatInfoModal';
+import ChatInfoModal from '../../components/Chat/ChatInfoModal';
 import {Header} from '../../components/Header/Header';
 import {themes} from '../../styles';
 import MessageBubble from '../../components/Chat/MessageBubble';
@@ -9,14 +9,7 @@ import MessageInput from '../../components/Chat/MessageInput';
 
 const Chat = () => {
   const [modalVisible, setModalVisible] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      text: '복용하는 약에 대해 궁금하신 점이 있으신가요?',
-      options: ['복용 방법', '주의사항', '주변 병원 정보', '그 외 궁금한 점'],
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
 
   useEffect(() => {

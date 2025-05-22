@@ -542,7 +542,7 @@ const SetMedicineRoutine = ({ route, navigation }) => {
       <ModalHeader
         showDelete="true"
         DeleteColor={themes.light.pointColor.Secondary}
-        onDeletePress={() => handleModifyRoutine()}
+        onDeletePress={() => handleDeleteRoutineGroup()}
       >
         {isEditing && !isPrescriptionMode ? '루틴 수정' : '루틴 등록'}
       </ModalHeader>
@@ -719,7 +719,7 @@ const Section = styled.View`
 
 const SectionTitle = styled.Text`
   font-family: 'Pretendard-Bold';
-  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]};
   color: ${themes.light.textColor.textPrimary};
 `;
 
@@ -727,7 +727,7 @@ const HeaderButton = styled.TouchableOpacity``;
 
 const HeaderButtonText = styled.Text`
   font-family: 'Pretendard-Medium';
-  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   color: ${themes.light.textColor.Primary30};
 `;
 

@@ -1,31 +1,45 @@
 import React from 'react';
 import styled from 'styled-components/native';
-import {TouchableOpacity, View, Platform} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {TouchableOpacity, View} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {HeaderIcons} from '../../../assets/icons';
 import {themes} from '../../styles';
 import FontSizes from '../../../assets/fonts/fontSizes';
 import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 
-const Header = ({children, onBackPress}) => {
+const Header = ({
+  children, 
+  onBackPress, 
+  hideBorder = false,
+  transparentBg = false,
+  titleColor,
+  iconColor,
+}) => {
   const navigation = useNavigation();
   const handleBackPress = onBackPress || (() => navigation.goBack());
   const {fontSizeMode} = useFontSize();
+  const insets = useSafeAreaInsets(); // SafeArea 인셋 가져오기
 
   return (
-    <HeaderContainer>
+    <HeaderContainer 
+      hideBorder={hideBorder}
+      transparentBg={transparentBg}
+      style={{ paddingTop: insets.top }}
+    >
       <BackAndTitleContainer>
         <TouchableOpacity style={{padding: 12}} onPress={handleBackPress}>
           <HeaderIcons.chevron
             width={17}
             height={17}
-            style={{color: themes.light.textColor.textPrimary}}
+            style={{color: iconColor || themes.light.textColor.textPrimary}}
           />
         </TouchableOpacity>
         <Title
           fontSizeMode={fontSizeMode}
           numberOfLines={1}
-          ellipsizeMode="tail">
+          ellipsizeMode="tail"
+          titleColor={titleColor}>
           {children}
         </Title>
         <View width={41} height={41} />
@@ -35,17 +49,10 @@ const Header = ({children, onBackPress}) => {
 };
 
 const HeaderContainer = styled.View`
-  ${Platform.OS === 'ios' &&
-  `
-    height: 108px;
-  `}
-  ${Platform.OS === 'android' &&
-  `
-    height: 50px;
-  `}
   justify-content: flex-end;
-  background-color: ${themes.light.bgColor.bgPrimary};
-  border-bottom-width: 1;
+  background-color: ${({transparentBg}) =>
+    transparentBg ? 'transparent' : themes.light.bgColor.bgPrimary};
+  border-bottom-width: ${props => (props.hideBorder ? 0 : 1)}px;
   border-bottom-color: ${themes.light.borderColor.borderPrimary};
 `;
 
@@ -58,8 +65,8 @@ const Title = styled.Text`
   flex: 1;
   text-align: center;
   font-family: 'Pretendard-SemiBold';
-  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
-  color: ${themes.light.textColor.textPrimary};
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
+  color: ${({titleColor}) => titleColor || themes.light.textColor.textPrimary};
 `;
 
 export {Header};

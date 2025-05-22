@@ -11,14 +11,15 @@ import {
   StyleSheet,
   Text,
   InteractionManager,
+  BackHandler,
 } from 'react-native';
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
-import {useNavigation, useIsFocused} from '@react-navigation/native';
-import {cropCenterArea} from '../../api/services/cameraService';
+import {useNavigation, useIsFocused, useRoute} from '@react-navigation/native';
+import {cropCenterArea} from '../../services/cameraService';
 import styled from 'styled-components/native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, {Rect, Mask, Defs} from 'react-native-svg';
@@ -46,9 +47,13 @@ const AnimatedFocusArea = Animated.View;
 const CameraSearchScreen = () => {
   // --- Hooks ---
   const navigation = useNavigation();
+  const route = useRoute();
   const isFocused = useIsFocused();
   const {hasPermission, requestPermission} = useCameraPermission();
   const {fontSizeMode} = useFontSize();
+
+  // --- 화면 전환 관련 파라미터 ---
+  const {actionType, sourceScreen} = route.params || {};
 
   // --- State ---
   const [activeIndex, setActiveIndex] = useState(0);
@@ -70,10 +75,61 @@ const CameraSearchScreen = () => {
   const focusIndicatorOpacity = useRef(new Animated.Value(0)).current;
   const focusIndicatorScale = useRef(new Animated.Value(1.2)).current;
   const isMounted = useRef(true);
+  const modeSetupComplete = useRef(false);
 
   // --- Derived State ---
   const isPrescriptionMode = activeIndex === 1;
   const device = useCameraDevice(cameraPosition);
+
+  // PhotoPreview에서 돌아와서 VoiceChat으로 가는 중계 로직
+  useEffect(() => {
+    // Camera 화면이 포커스될 때 파라미터 확인
+    const unsubscribe = navigation.addListener('focus', () => {
+      // route.params에서 처리 완료 플래그 및 이미지 URI 확인
+      const {
+        processingComplete,
+        finalPhotoUri,
+        isPrescription,
+        actionType,
+        sourceScreen,
+        timestamp,
+      } = route.params || {};
+
+      // 이미지 처리가 완료되었다면 VoiceChat으로 돌아가기
+      if (processingComplete && finalPhotoUri && sourceScreen === 'VoiceChat') {
+        console.log('[Camera] 이미지 처리 완료 확인, VoiceChat으로 돌아갑니다');
+
+        // 파라미터 초기화 (중복 처리 방지)
+        navigation.setParams({
+          processingComplete: undefined,
+          finalPhotoUri: undefined,
+          isPrescription: undefined,
+          actionType: undefined,
+          sourceScreen: undefined,
+          timestamp: undefined,
+        });
+
+        // 수정된 부분: VoiceChat으로 직접 이동하는 방식 사용
+        navigation.reset({
+          index: 0, // 첫 번째 화면을 활성화 (이제 VoiceChat만 있음)
+          routes: [
+            {
+              name: 'VoiceChat',
+              params: {
+                photoUri: finalPhotoUri,
+                isPrescription: isPrescription,
+                actionType: actionType,
+                timestamp: timestamp || Date.now(),
+                photoProcessed: true,
+              },
+            },
+          ],
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, route.params]);
 
   // --- Clean up on unmount ---
   useEffect(() => {
@@ -96,12 +152,27 @@ const CameraSearchScreen = () => {
     };
   }, []);
 
+  // 백 버튼 핸들러 (Android)
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        handleGoBack();
+        return true; // 기본 뒤로가기 동작 방지
+      },
+    );
+
+    return () => backHandler.remove();
+  }, []);
+
+  // --- 카메라 액티베이션 ---
   useEffect(() => {
     if (isFocused && hasPermission) {
       // 화면 렌더링 완료 후 카메라 활성화
       const timer = setTimeout(() => {
         if (isMounted.current) {
           setIsCameraActive(true);
+          console.log('[Camera] Camera activated');
         }
       }, 100); // 약간의 지연으로 렌더링 완료 보장
 
@@ -110,6 +181,27 @@ const CameraSearchScreen = () => {
       setIsCameraActive(false);
     }
   }, [isFocused, hasPermission]);
+
+  // --- actionType에 따른 모드 설정 ---
+  useEffect(() => {
+    // 이미 모드가 설정되었거나 actionType이 없는 경우 무시
+    if (modeSetupComplete.current || !actionType) return;
+
+    if (actionType === 'PRESCRIPTION') {
+      console.log('[Camera] 처방전 촬영 모드로 설정');
+      // 약간의 지연을 추가하여 렌더링 이후 상태 변경이 적용되도록 함
+      setTimeout(() => {
+        handleToggle(1); // 처방전 모드(index 1)로 설정
+        modeSetupComplete.current = true;
+      }, 300);
+    } else if (actionType === 'PILLS') {
+      console.log('[Camera] 알약 촬영 모드로 설정');
+      setTimeout(() => {
+        handleToggle(0); // 알약 모드(index 0)로 설정
+        modeSetupComplete.current = true;
+      }, 300);
+    }
+  }, [actionType]);
 
   // --- Permission Handling ---
   const checkAndRequestCameraPermission = useCallback(async () => {
@@ -149,10 +241,9 @@ const CameraSearchScreen = () => {
 
   const handleGoBack = useCallback(() => {
     if (isMounted.current) {
-      setIsCameraActive(false); // 먼저 비활성화 (카메라 해제)
+      setIsCameraActive(false); // 먼저 비활성화
     }
 
-    // 네비게이션 이동은 약간 delay
     setTimeout(() => {
       navigation.goBack();
     }, 50);
@@ -231,6 +322,8 @@ const CameraSearchScreen = () => {
               navigation.navigate('PhotoPreview', {
                 photoUri: result.assets[0].uri,
                 isPrescription: isPrescriptionNow,
+                actionType: actionType, // 액션 타입 전달
+                sourceScreen: sourceScreen, // 소스 화면 전달
               });
             }
           });
@@ -247,7 +340,7 @@ const CameraSearchScreen = () => {
         setIsProcessing(false);
       }
     }
-  }, [navigation, isProcessing, activeIndex]);
+  }, [navigation, isProcessing, activeIndex, actionType, sourceScreen]);
 
   const handleCapture = useCallback(async () => {
     if (
@@ -257,8 +350,12 @@ const CameraSearchScreen = () => {
       !cameraLayout.width ||
       !cameraLayout.height
     ) {
-      // 기존 권한 체크 코드 유지
-      return;
+      if (!hasPermission) {
+        const granted = await checkAndRequestCameraPermission();
+        if (!granted) return;
+      } else {
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -299,6 +396,8 @@ const CameraSearchScreen = () => {
               navigation.navigate('PhotoPreview', {
                 photoUri: croppedUri,
                 isPrescription: isPrescriptionMode,
+                actionType: actionType, // 액션 타입 전달
+                sourceScreen: sourceScreen, // 소스 화면 전달
               });
             }
           });
@@ -312,6 +411,7 @@ const CameraSearchScreen = () => {
         }
       }
     } catch (error) {
+      console.error('사진 촬영 오류:', error);
       if (isMounted.current) {
         setIsCameraActive(true); // 오류 시 카메라 다시 활성화
       }
@@ -328,6 +428,8 @@ const CameraSearchScreen = () => {
     isPrescriptionMode,
     navigation,
     checkAndRequestCameraPermission,
+    actionType,
+    sourceScreen,
   ]);
 
   const animateFocusIndicator = useCallback(() => {
@@ -499,10 +601,9 @@ const CameraSearchScreen = () => {
               onPress={() => handleToggle(0)}
               disabled={isProcessing}>
               <ToggleButton>
-                <ToggleText 
+                <ToggleText
                   isActive={activeIndex === 0}
-                  fontSizeMode={fontSizeMode}
-                >
+                  fontSizeMode={fontSizeMode}>
                   알약 촬영
                 </ToggleText>
               </ToggleButton>
@@ -511,10 +612,9 @@ const CameraSearchScreen = () => {
               onPress={() => handleToggle(1)}
               disabled={isProcessing}>
               <ToggleButton>
-                <ToggleText 
+                <ToggleText
                   isActive={activeIndex === 1}
-                  fontSizeMode={fontSizeMode}
-                >
+                  fontSizeMode={fontSizeMode}>
                   처방전 촬영
                 </ToggleText>
               </ToggleButton>
@@ -626,7 +726,9 @@ const CameraSearchScreen = () => {
                 />
               </HintIconWrapper>
               <HintTextWrapper>
-                <HintTitle fontSizeMode={fontSizeMode}>인식률을 높이려면?</HintTitle>
+                <HintTitle fontSizeMode={fontSizeMode}>
+                  인식률을 높이려면?
+                </HintTitle>
                 <HintText fontSizeMode={fontSizeMode}>
                   문자가 적힌 면이 위로 가도록 밝은 곳에서 촬영해주세요.
                 </HintText>
@@ -704,18 +806,22 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 10,
+    backgroundColor: 'rgba(66, 115, 237, 0.8)',
+    borderRadius: 8,
   },
   settingsButtonText: {
-    color: themes.light.pointColor.Primary,
+    color: 'white',
     fontSize: 16,
+    fontFamily: 'Pretendard-Medium',
   },
   backButton: {
     padding: 10,
-    marginTop: 5,
+    marginTop: 15,
   },
   backButtonText: {
-    color: 'grey',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
   },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -806,6 +912,7 @@ const LoadingContainer = styled.View`
 
 const LoadingText = styled.Text`
   color: white;
+  font-family: 'Pretendard-Medium';
   margin-top: 10px;
 `;
 

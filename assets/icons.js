@@ -15,6 +15,7 @@ import AddIcon from './icons/chat/add.svg';
 import MikeIcon from './icons/chat/mike.svg';
 import RobotIcon from './icons/chat/robot.svg';
 import SendIcon from './icons/chat/send.svg';
+import VoiceIcon from './icons/chat/voice.svg';
 
 // 헤더 아이콘
 import ChevronIcon from './icons/header/chevron.svg';
@@ -86,6 +87,9 @@ import ReturnIcon from './icons/return.svg';
 import SearchGeneralIcon from './icons/search.svg';
 import ChevronDownIcon from './icons/chevron_down.svg';
 import KakaoIcon from './icons/kakao.svg';
+import CheckCircleIcon from './icons/check_circle.svg';
+import ToolTipIcon from './icons/tooltip.svg';
+import SpeakerIcon from './icons/speaker.svg';
 
 // 이미지 에셋
 import EmptyLikeImage from './images/emptyLike.svg';
@@ -114,6 +118,7 @@ export const ChatIcons = {
   mike: MikeIcon,
   robot: RobotIcon,
   send: SendIcon,
+  voice: VoiceIcon,
 };
 
 export const HeaderIcons = {
@@ -194,6 +199,9 @@ export const OtherIcons = {
   search: SearchGeneralIcon,
   chevronDown: ChevronDownIcon,
   kakao: KakaoIcon,
+  CheckCircle: CheckCircleIcon,
+  ToolTip: ToolTipIcon,
+  Speaker: SpeakerIcon
 };
 
 export const Images = {

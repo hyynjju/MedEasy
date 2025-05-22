@@ -8,6 +8,10 @@ import {
   InteractionManager,
   ActivityIndicator,
   Alert,
+  Easing,
+  Animated,
+  StyleSheet,
+  Platform,
 } from 'react-native';
 import {ScrollView, FlatList} from 'react-native-gesture-handler';
 import {themes} from '../../styles';
@@ -20,28 +24,43 @@ import {
   Button,
   SimilarMedicineItem,
 } from './../../components';
+import MedicineWarning from '../../components/MedicineInfo/MedicineWarning';
 import FontSizes from '../../../assets/fonts/fontSizes';
 import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 import {OtherIcons} from '../../../assets/icons';
-import {getSimilarMedicines, getMedicineById} from '../../api/medicine';
-import {getUserMedicineCount} from '../../api/user';
+import {
+  getSimilarMedicines,
+  getMedicineById,
+  getMedicineAudioUrl,
+} from '../../api/medicine';
+import {getUserMedicinesCurrent} from '../../api/user';
+import Sound from 'react-native-sound';
+
+Sound.setCategory('Playback', true);
 
 const MedicineDetailScreen = ({route, navigation}) => {
   const {medicineId, isModal, basicInfo, item, title} = route.params;
   const {fontSizeMode} = useFontSize();
-  
+
   const [medicine, setMedicine] = useState(basicInfo || item || null);
   const [similarMedicines, setSimilarMedicines] = useState([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSound, setCurrentSound] = useState(null);
 
   const isMounted = useRef(true);
+
+  const safeParse = val => {
+    const parsed = parseFloat(val);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   // medicine_id로 약품 정보 가져오기
   const fetchMedicineData = async () => {
     try {
       setIsLoading(true);
-      
+
       // 기존 item 객체가 전달된 경우
       if (item && !medicineId) {
         // 기본 정보만 먼저 매핑하여 빠르게 렌더링
@@ -52,6 +71,7 @@ const MedicineDetailScreen = ({route, navigation}) => {
           class_name: item.class_name,
           etc_otc_name: item.etc_otc_name,
           item_image: item.item_image,
+          item_seq: item.item_seq, // 금기정보 조회에 필요
         };
 
         // 기본 정보로 먼저 상태 업데이트
@@ -83,24 +103,24 @@ const MedicineDetailScreen = ({route, navigation}) => {
             setIsLoading(false);
           }
         });
-      } 
+      }
       // medicineId로 API 호출하여 데이터 가져오기
       else if (medicineId) {
         console.log('약품 ID로 상세 정보 가져오기:', medicineId);
-        
+
         // 기본 정보가 전달된 경우 우선 표시
         if (basicInfo) {
           setMedicine({
             item_id: medicineId,
-            ...basicInfo
+            ...basicInfo,
           });
         }
-        
+
         const response = await getMedicineById(medicineId);
-        
+
         if (response.data?.result?.result_code === 200) {
           const medicineData = response.data.body;
-          
+
           // 기본 정보 매핑
           const mappedMedicine = {
             item_id: medicineData.id,
@@ -109,6 +129,7 @@ const MedicineDetailScreen = ({route, navigation}) => {
             class_name: medicineData.class_name,
             etc_otc_name: medicineData.etc_otc_name,
             item_image: medicineData.item_image,
+            item_seq: medicineData.item_seq, // 금기정보 조회에 필요
             // 추가 정보
             chart: medicineData.chart,
             drug_shape: medicineData.drug_shape,
@@ -124,7 +145,7 @@ const MedicineDetailScreen = ({route, navigation}) => {
             atpn_qesitm: medicineData.precautions,
             se_qesitm: medicineData.side_effects,
           };
-          
+
           setMedicine(mappedMedicine);
         } else {
           console.error('약품 정보 API 오류:', response);
@@ -142,7 +163,7 @@ const MedicineDetailScreen = ({route, navigation}) => {
   // 컴포넌트 마운트 시 데이터 가져오기
   useEffect(() => {
     fetchMedicineData();
-    
+
     return () => {
       isMounted.current = false;
     };
@@ -216,24 +237,21 @@ const MedicineDetailScreen = ({route, navigation}) => {
     try {
       if (!medicine) return;
 
-      const response = await getUserMedicineCount();
-      const countData = response.data?.body || response.data;
+      const response = await getUserMedicinesCurrent();
+      const currentList = response.data?.body || response.data;
 
-      if (countData) {
-        const {medicine_ids} = countData;
+      if (Array.isArray(currentList)) {
+        const registered = currentList.some(
+          med => String(med.medicine_id) === String(medicine.item_id),
+        );
 
-        console.log('💊등록된 약 id 리스트: ', medicine_ids);
-        console.log('현재 약 id: ', medicine.item_id);
-
-        if (medicine_ids && medicine_ids.includes(String(medicine.item_id))) {
-          setIsRegistered(true);
-          console.log('📝 등록된 약입니다.');
-        } else {
-          setIsRegistered(false);
-          console.log('❔ 등록되지 않은 약입니다.');
-        }
+        setIsRegistered(registered);
+        console.log(
+          registered ? '📝 등록된 약입니다.' : '❔ 등록되지 않은 약입니다.',
+        );
       } else {
-        console.error('API 응답에 유효한 데이터가 없습니다:', response);
+        console.warn('예상과 다른 데이터 형식:', currentList);
+        setIsRegistered(false);
       }
     } catch (error) {
       console.error('API 호출 중 오류 발생:', error);
@@ -266,29 +284,107 @@ const MedicineDetailScreen = ({route, navigation}) => {
     }
   };
 
-  // 로딩 중 표시
+  const handleAudioPress = async medicineId => {
+    if (isPlaying && currentSound) {
+      currentSound.stop();
+      currentSound.release();
+      setCurrentSound(null);
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      const response = await getMedicineAudioUrl(medicineId);
+      const audioUrl = response.data.body;
+
+      if (audioUrl) {
+        const sound = new Sound(audioUrl, '', error => {
+          if (error) {
+            console.error('오디오 로딩 실패:', error);
+            Alert.alert('오류', '오디오 파일을 로드하는 데 실패했습니다.');
+            setIsPlaying(false);
+            return;
+          }
+
+          sound.setVolume(1.0);
+          setIsPlaying(true);
+          setCurrentSound(sound);
+
+          sound.play(success => {
+            if (!success) {
+              Alert.alert('오류', '오디오 재생에 실패했습니다.');
+            }
+            setIsPlaying(false);
+            setCurrentSound(null);
+            sound.release();
+          });
+        });
+      } else {
+        Alert.alert('안내', '이 약에 대한 음성 정보가 없습니다.');
+      }
+    } catch (error) {
+      Alert.alert('오류', '음성 파일을 가져오는 데 실패했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (currentSound) {
+        currentSound.stop();
+        currentSound.release();
+      }
+    };
+  }, [currentSound]);
+
+  const bubbleOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(bubbleOpacity, {
+      toValue: 1,
+      duration: 500,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+
+    const timeout = setTimeout(() => {
+      Animated.timing(bubbleOpacity, {
+        toValue: 0,
+        duration: 500,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }, 4000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
   if (isLoading) {
     return (
       <Container>
         <HeaderComponent isModal={isModal}>
-          약 정보를 불러오는 중...
+          {title || '약 정보를 불러오는 중...'}
         </HeaderComponent>
         <LoadingContainer>
-          <ActivityIndicator size="large" color={themes.light.textColor.Primary50} />
+          <ActivityIndicator
+            size="large"
+            color={themes.light.pointColor.Primary}
+          />
+          <EmptyText fontSizeMode={fontSizeMode}>
+            약 정보를 불러오는 중입니다...
+          </EmptyText>
         </LoadingContainer>
       </Container>
     );
   }
-
   // 데이터가 없는 경우 처리
   if (!medicine) {
     return (
       <Container>
-        <HeaderComponent isModal={isModal}>
-          약 정보
-        </HeaderComponent>
+        <HeaderComponent isModal={isModal}>약 정보</HeaderComponent>
         <LoadingContainer>
-          <EmptyText fontSizeMode={fontSizeMode}>약 정보를 불러올 수 없습니다.</EmptyText>
+          <EmptyText fontSizeMode={fontSizeMode}>
+            약 정보를 불러올 수 없습니다.
+          </EmptyText>
         </LoadingContainer>
       </Container>
     );
@@ -309,6 +405,17 @@ const MedicineDetailScreen = ({route, navigation}) => {
           <MedicineAppearanceContainer>
             <MedicineAppearance item={medicine} size="large" />
           </MedicineAppearanceContainer>
+
+          {/* 약품 금기 정보 컴포넌트 추가 */}
+          <MedicineWarning item={medicine} />
+
+          {/* 섹션 분리선 - bgSecondary로 배경색 구분 */}
+          <View
+            style={{
+              height: 10,
+              backgroundColor: themes.light.bgColor.bgSecondary,
+            }}
+          />
 
           <MedicineUsageContainer>
             <View
@@ -347,7 +454,9 @@ const MedicineDetailScreen = ({route, navigation}) => {
             </View>
           </MedicineUsageContainer>
           <SimilarMedicinesContainer>
-            <HeadingText style={{paddingHorizontal: 20}} fontSizeMode={fontSizeMode}>
+            <HeadingText
+              style={{paddingHorizontal: 20}}
+              fontSizeMode={fontSizeMode}>
               비슷한 약 보기
             </HeadingText>
             {similarMedicines.length > 0 ? (
@@ -392,6 +501,22 @@ const MedicineDetailScreen = ({route, navigation}) => {
           paddingBottom: 30,
           alignItems: 'center',
         }}>
+        <VoiceContainer>
+          <Animated.View
+            style={[styles.bubbleComponent, {opacity: bubbleOpacity}]}>
+            <Bubble>
+              <BubbleText>음성 안내</BubbleText>
+            </Bubble>
+            <OtherIcons.ToolTip style={{marginLeft: 40}} />
+          </Animated.View>
+          <VoiceButton onPress={() => handleAudioPress(medicine.item_id)}>
+            <OtherIcons.Speaker
+              width={25}
+              height={25}
+              style={{color: themes.light.pointColor.Primary}}
+            />
+          </VoiceButton>
+        </VoiceContainer>
         {isRegistered ? (
           <Button
             title="루틴 추가 완료!"
@@ -434,25 +559,102 @@ const LoadingContainer = styled.View`
 
 const EmptyText = styled.Text`
   font-family: 'Pretendard-Medium';
-  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.body[fontSizeMode]};
   color: ${themes.light.textColor.Primary50};
 `;
 
-const Usage = ({label, value, borderBottomWidth = 1, fontSizeMode}) => {
-  const [expanded, setExpanded] = useState(false);
-  const textLengthThreshold = 150; // 토글 기능 활성화 길이
-  const isLongText = value && value.length > textLengthThreshold;
+const VoiceContainer = styled.View`
+  position: absolute;
+  justify-content: center;
+  align-items: center;
+  right: 20px;
+  ${Platform.OS === 'ios' &&
+  `
+      bottom: 130px;
+    `}
+  ${Platform.OS === 'android' &&
+  `
+      bottom: 110px;
+    `}
+`;
 
-  // 축소된 텍스트는 처음 70자만 보여주고 '...' 추가
-  const shortenedText =
-    isLongText && !expanded ? value.substring(0, 100) + '...' : value;
+const Bubble = styled.View`
+  background-color: ${themes.light.boxColor.buttonPrimary};
+  border-radius: 8px;
+  padding: 8px;
+  justify-content: center;
+  align-items: center;
+`;
+
+const BubbleText = styled.Text`
+  color: ${themes.light.textColor.buttonText};
+  font-family: 'KimjungchulGothic-Bold';
+  font-size: ${FontSizes.caption.large};
+`;
+
+const VoiceButton = styled.TouchableOpacity`
+  position: absolute;
+  right: 0px;
+  ${Platform.OS === 'android' && `bottom: 0px;`}
+  background-color: ${themes.light.bgColor.bgPrimary};
+  width: 50px;
+  height: 50px;
+  border-radius: 20px;
+  justify-content: center;
+  align-items: center;
+  /* Android 그림자 */
+  elevation: 5;
+
+  /* iOS 그림자 */
+  shadow-color: #000;
+  shadow-offset: 2px 2px;
+  shadow-opacity: 0.2;
+  shadow-radius: 4px;
+`;
+
+const styles = StyleSheet.create({
+  bubbleComponent: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 30 : 60,
+  },
+});
+
+const Usage = ({label, value='', borderBottomWidth = 1, fontSizeMode}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [shouldShowToggle, setShouldShowToggle] = useState(false);
+  const textRef = useRef(null);
+
+  // 컴포넌트 마운트 후 텍스트 길이 예상 계산
+  useEffect(() => {
+    // 텍스트 길이로 토글 버튼 표시 여부 결정
+    // 평균적으로 한 줄에 표시되는 글자 수를 고려하여 계산
+    const averageCharsPerLine = 30; // 화면 크기와 폰트에 따라 조정 필요
+    const estimatedLines = Math.ceil(value.length / averageCharsPerLine);
+    setShouldShowToggle(estimatedLines > 5);
+
+    // 실제 레이아웃 측정 시도 (iOS에서는 더 정확하게 작동)
+    if (Platform.OS === 'ios') {
+      setTimeout(() => {
+        if (textRef.current) {
+          textRef.current.measure((x, y, width, height) => {
+            const lineHeight = 26; // 라인 높이
+            const estimatedLinesFromHeight = Math.floor(height / lineHeight);
+            setShouldShowToggle(estimatedLinesFromHeight > 5);
+          });
+        }
+      }, 100);
+    }
+  }, [value]);
 
   return (
     <View
       style={{
-        paddingVertical: 25,
+        paddingVertical: 24,
         paddingHorizontal: 20,
-        gap: 18,
+        gap: 12,
         borderBottomWidth: borderBottomWidth,
         borderBottomColor: themes.light.borderColor.borderSecondary,
       }}>
@@ -464,38 +666,33 @@ const Usage = ({label, value, borderBottomWidth = 1, fontSizeMode}) => {
         }}>
         <HeadingText fontSizeMode={fontSizeMode}>{label}</HeadingText>
 
-        {isLongText && (
+        {shouldShowToggle && (
           <TouchableOpacity
             style={{paddingVertical: 8, paddingLeft: 8}}
             onPress={() => setExpanded(!expanded)}>
-            {expanded ? (
-              <OtherIcons.chevronDown
-                width={17}
-                height={17}
-                style={{
-                  color: themes.light.textColor.Primary30,
-                  transform: [{rotate: '180deg'}],
-                }}
-              />
-            ) : (
-              <OtherIcons.chevronDown
-                width={17}
-                height={17}
-                style={{color: themes.light.textColor.Primary30}}
-              />
-            )}
+            <OtherIcons.chevronDown
+              width={17}
+              height={17}
+              style={{
+                color: themes.light.textColor.Primary30,
+                transform: expanded ? [{rotate: '180deg'}] : [],
+              }}
+            />
           </TouchableOpacity>
         )}
       </View>
 
+      {/* 실제 표시되는 텍스트 */}
       <Text
+        ref={textRef}
+        numberOfLines={expanded ? undefined : 5}
         style={{
           color: themes.light.textColor.Primary70,
           fontFamily: 'Pretendard-Medium',
           fontSize: FontSizes.body[fontSizeMode],
-          lineHeight: 30,
+          lineHeight: 26,
         }}>
-        {shortenedText}
+        {value}
       </Text>
     </View>
   );
@@ -504,7 +701,7 @@ const Usage = ({label, value, borderBottomWidth = 1, fontSizeMode}) => {
 const HeadingText = styled.Text`
   color: ${themes.light.textColor.textPrimary};
   font-family: 'Pretendard-Bold';
-  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]};
 `;
 
 export default MedicineDetailScreen;

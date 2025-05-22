@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { updateNotificationAgreement as apiUpdateNotificationAgreement } from './notification';
 
 const ACCESS_TOKEN_KEY = 'ACCESS_TOKEN';
 const REFRESH_TOKEN_KEY = 'REFRESH_TOKEN';
 const USER_INFO_KEY = 'user_info';
 const FCM_TOKEN_KEY ='FCM_TOKEN'; // FCM 토큰 키
+const NOTIFICATION_AGREED_KEY = 'NOTIFICATION_AGREED'; // 알림 동의 상태 키
 
 // AccessToken 저장
 export const setAccessToken = async token => {
@@ -17,7 +19,11 @@ export const setRefreshToken = async token => {
 
 // AccessToken 가져오기
 export const getAccessToken = async () => {
-  return await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+  const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!token || token === 'undefined' || token.trim() === '') {
+    return null;
+  }
+  return token;
 };
 
 // RefreshToken 가져오기
@@ -35,6 +41,35 @@ export const removeRefreshToken = async () => {
   await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
+// 액세스 토큰 만료 시간 저장
+export const setTokenExpiryTime = async (expiryTime) => {
+  try {
+    await AsyncStorage.setItem('ACCESS_TOKEN_EXPIRES_AT', String(expiryTime));
+  } catch (error) {
+    console.error('토큰 만료 시간 저장 오류:', error);
+  }
+};
+
+// 액세스 토큰 만료 시간 조회
+export const getTokenExpiryTime = async () => {
+  try {
+    const expiryTime = await AsyncStorage.getItem('ACCESS_TOKEN_EXPIRES_AT');
+    return expiryTime ? Number(expiryTime) : null;
+  } catch (error) {
+    console.error('토큰 만료 시간 조회 오류:', error);
+    return null;
+  }
+};
+
+// 토큰 만료 시간 제거
+export const removeTokenExpiryTime = async () => {
+  try {
+    await AsyncStorage.removeItem('ACCESS_TOKEN_EXPIRES_AT');
+  } catch (error) {
+    console.error('토큰 만료 시간 제거 오류:', error);
+  }
+};
+
 // FCM 토큰 저장
 export const setFCMToken = async token => {
   try {
@@ -50,11 +85,51 @@ export const setFCMToken = async token => {
   }
 };
 
-
 // FCM 토큰 가져오기
 export const getFCMToken = async () => {
   return await AsyncStorage.getItem(FCM_TOKEN_KEY);
 }
+
+// 알림 동의 상태 저장
+export const setNotificationAgreed = async (agreed) => {
+  try {
+    await AsyncStorage.setItem(NOTIFICATION_AGREED_KEY, JSON.stringify(agreed));
+    console.log(`ℹ️ 알림 동의 상태 저장: ${agreed}`);
+    return true;
+  } catch (e) {
+    console.error('❌ 알림 동의 상태 저장 실패', e);
+    return false;
+  }
+};
+
+// 알림 동의 상태 가져오기
+export const getNotificationAgreed = async () => {
+  try {
+    const value = await AsyncStorage.getItem(NOTIFICATION_AGREED_KEY);
+    // 값이 없으면 기본값 true 반환
+    if (value === null) return true;
+    return JSON.parse(value);
+  } catch (e) {
+    console.error('❌ 알림 동의 상태 가져오기 실패', e);
+    // 오류 발생 시 기본값 true 반환
+    return true;
+  }
+};
+
+// 알림 동의 상태 업데이트 (API 호출 + AsyncStorage 저장)
+export const updateNotificationAgreement = async (agreed) => {
+  try {
+    // API 인터페이스를 통해 알림 설정 업데이트
+    await apiUpdateNotificationAgreement(agreed);
+    
+    // API 호출 성공 후 로컬 저장소 업데이트
+    return await setNotificationAgreed(agreed);
+  } catch (e) {
+    console.error('❌ 알림 설정 API 호출 실패', e);
+    // API 호출 실패 시에도 로컬 저장 시도
+    return await setNotificationAgreed(agreed);
+  }
+};
 
 // 사용자 정보 관리 함수
 export const setUserInfo = async userInfo => {

@@ -16,6 +16,7 @@ import TodayHeader from '../../components/TodayHeader';
 import HomeRoutine from '../../components/HomeRoutine';
 import FontSizes from '../../../assets/fonts/fontSizes';
 import {useFontSize} from '../../../assets/fonts/FontSizeContext';
+import {useCareListModal} from '../../components/CareListModal';
 import dayjs from 'dayjs';
 dayjs.locale('ko');
 
@@ -29,6 +30,7 @@ const Home = () => {
   const navigation = useNavigation();
   const {signUpData} = useSignUp();
   const {fontSizeMode} = useFontSize();
+  const {modalVisible, openModal, closeModal, CareListModalComponent} = useCareListModal();
   const isFocused = useIsFocused(); // 화면 포커스 상태 확인
   const insets = useSafeAreaInsets(); // SafeArea 인셋 가져오기
 
@@ -272,29 +274,30 @@ const Home = () => {
         <PillReminderContainer>
           <TextContainer>
             <ReminderText fontSizeMode={fontSizeMode}>
-            {todayRoutine
-              ? `${userName}님,\n까먹은 약이 있어요.`
-              : `${userName}님,\n건강한 하루 보내세요!`}
+              {todayRoutine
+                ? `${userName}님,\n까먹은 약이 있어요.`
+                : `${userName}님,\n건강한 하루 보내세요!`}
             </ReminderText>
-            <LogoIcons.logo
-              width={70}
-              height={112}
-              style={{
-                color: themes.light.pointColor.Primary10,
-                transform: [{rotate: '10deg'}],
-                position: 'absolute',
-                bottom: -20,
-                right: 40,
-              }}
-            />
+
+            {/* 모달 컴포넌트 */}
+            {CareListModalComponent}
+
+            <LogoBackgroundContainer>
+              <LogoIcons.logo
+                width={70}
+                height={112}
+                style={{
+                  color: themes.light.pointColor.Primary10,
+                  transform: [{rotate: '10deg'}],
+                }}
+              />
+            </LogoBackgroundContainer>
           </TextContainer>
+          
           {todayRoutine ? (
-            <View
-              style={{
-                alignItems: 'center',
-              }}>
+            <HomeRoutineContainer>
               <HomeRoutine schedules={todayRoutine} />
-            </View>
+            </HomeRoutineContainer>
           ) : (
             <View
               style={{
@@ -309,6 +312,7 @@ const Home = () => {
               </RoutineButton>
             </View>
           )}
+          
           <ButtonContainer>
             <AddButton onPress={handleAddMedicineRoutine}>
               <ButtonContent>
@@ -332,7 +336,7 @@ const Home = () => {
                 />
               </ButtonContent>
             </AddButton>
-            {/* <AddButton onPress={handleAddHospitalVisit}>
+            <AddButton onPress={openModal}>
               <ButtonContent>
                 <ButtonInfo>
                   <RoutineIcons.hospital
@@ -343,7 +347,7 @@ const Home = () => {
                       marginRight: 10,
                     }}
                   />
-                  <ButtonText>병원 진료 추가하기</ButtonText>
+                  <ButtonText fontSizeMode={fontSizeMode}>보호 대상 관리</ButtonText>
                 </ButtonInfo>
                 <HeaderIcons.chevron
                   height={16}
@@ -353,7 +357,7 @@ const Home = () => {
                   }}
                 />
               </ButtonContent>
-            </AddButton> */}
+            </AddButton>
           </ButtonContainer>
         </PillReminderContainer>
 
@@ -450,9 +454,23 @@ const TextContainer = styled.View`
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  overflow: hidden;
+  overflow: visible;
   margin-top: 20px;
   padding: 12px 20px 20px 20px;
+  position: relative;
+`;
+
+// 로고를 위한 별도 컨테이너 생성 - z-index 조정을 위해
+const LogoBackgroundContainer = styled.View`
+  position: absolute;
+  bottom: -20px;
+  right: 40px;
+  z-index: -1;
+`;
+
+const HomeRoutineContainer = styled.View`
+  position: relative;
+  z-index: 2;
 `;
 
 const ReminderText = styled.Text`
@@ -575,6 +593,5 @@ const UnreadDot = styled.View`
   border-radius: 4px;
   background-color: red;
 `;
-
 
 export default Home;

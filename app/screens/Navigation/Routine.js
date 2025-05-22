@@ -3,7 +3,7 @@ import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {ScrollView, Dimensions, FlatList} from 'react-native';
 import styled from 'styled-components/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {HeaderIcons, OtherIcons, Images} from '../../../assets/icons';
+import {HeaderIcons, OtherIcons} from '../../../assets/icons';
 import {themes} from '../../styles';
 import dayjs from 'dayjs';
 import TodayHeader from '../../components/TodayHeader';
@@ -11,13 +11,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import {getRoutineByDate, checkRoutine} from '../../api/routine';
 // data.js에서 데이터 import
 import {
-  //initialHospitalRoutines,
   weekDays,
-} from '../../../assets/data/data';
+  generateWeeks,
+  getTimeTypeFromScheduleName,
+  convertToPrettyTime,
+  convertToSortValue,
+  getDayOfWeek,
+} from '../../../assets/data/utils';
 import FontSizes from '../../../assets/fonts/fontSizes';
 import {getUserSchedule} from '../../api/user';
-import RoutineCard from '../../components/RoutineCard';
-import EmptyState from '../../components/EmptyState';
+import RoutineTimeline from '../../components/RoutineTimeline';
 import {useFontSize} from '../../../assets/fonts/FontSizeContext';
 
 const {width} = Dimensions.get('window');
@@ -27,7 +30,7 @@ const Routine = ({route}) => {
   const flatListRef = useRef(null);
   const navigation = useNavigation();
   const paramDate = route.params?.selectedDate; // 스크롤할 날짜 파라미터
-  const { fontSizeMode } = useFontSize();
+  const {fontSizeMode} = useFontSize();
 
   const insets = useSafeAreaInsets(); // SafeArea 인셋 가져오기
 
@@ -37,17 +40,9 @@ const Routine = ({route}) => {
     DINNER: {label: '저녁', time: '', sortValue: ''},
     BEDTIME: {label: '자기 전', time: '', sortValue: ''},
   });
-
-  const getTimeTypeFromScheduleName = scheduleName => {
-    const lowerName = scheduleName.toLowerCase();
-
-    if (lowerName.includes('아침')) return 'MORNING';
-    if (lowerName.includes('점심')) return 'LUNCH';
-    if (lowerName.includes('저녁')) return 'DINNER';
-    if (lowerName.includes('자기 전')) return 'BEDTIME';
-
-    return null;
-  };
+  const [medicineRoutines, setMedicineRoutines] = useState([]);
+  // 날짜별 routine_medicine_id를 저장
+  const [routineMedicineMap, setRoutineMedicineMap] = useState({});
 
   useFocusEffect(
     useCallback(() => {
@@ -85,53 +80,6 @@ const Routine = ({route}) => {
       return () => {};
     }, []),
   );
-
-  const convertToPrettyTime = time24 => {
-    const [hourStr, minuteStr] = time24.split(':');
-    let hour = parseInt(hourStr, 10);
-    const minute = minuteStr;
-    const isPM = hour >= 12;
-    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-    return `오${isPM ? '후' : '전'} ${displayHour}:${minute}`;
-  };
-
-  const convertToSortValue = time24 => {
-    const [hourStr, minuteStr] = time24.split(':');
-    const hour = parseInt(hourStr, 10);
-    const minute = parseInt(minuteStr, 10);
-    return hour * 100 + minute; // 예: 09:30 → 930, 14:00 → 1400
-  };
-
-  // 날짜별 routine_medicine_id를 저장
-  const [routineMedicineMap, setRoutineMedicineMap] = useState({});
-
-  // 현재 주차를 중심으로 이전 4주, 이후 4주까지 총 9주 데이터 생성
-  const generateWeeks = centerDate => {
-    const weeks = [];
-
-    // 이전 4주
-    for (let i = -4; i <= 4; i++) {
-      const startOfWeek = centerDate.startOf('week').add(i * 7, 'day');
-      const weekData = [];
-
-      for (let j = 0; j < 7; j++) {
-        const currentDate = startOfWeek.add(j, 'day');
-        weekData.push({
-          day: weekDays[currentDate.day()],
-          date: currentDate.date(),
-          month: currentDate.month() + 1,
-          year: currentDate.year(),
-          fullDate: currentDate,
-          isToday:
-            currentDate.format('YYYY-MM-DD') === today.format('YYYY-MM-DD'),
-        });
-      }
-
-      weeks.push(weekData);
-    }
-
-    return weeks;
-  };
 
   const weeks = generateWeeks(today);
 
@@ -269,12 +217,6 @@ const Routine = ({route}) => {
     setCheckedItems(updatedChecks);
   };
 
-  const [medicineRoutines, setMedicineRoutines] = useState([]);
-  //임시 데이터 사용
-  // const [hospitalRoutines, setHospitalRoutines] = useState(
-  //   initialHospitalRoutines,
-  // );
-
   useFocusEffect(
     useCallback(() => {
       const fetchRoutineData = async () => {
@@ -319,8 +261,7 @@ const Routine = ({route}) => {
       routineMap[dateKey] = {};
 
       day.user_schedule_dtos.forEach(schedule => {
-        const timeType =
-          getTimeTypeFromScheduleName(schedule.name);
+        const timeType = getTimeTypeFromScheduleName(schedule.name);
 
         if (!routineMap[dateKey][timeType]) {
           routineMap[dateKey][timeType] = {};
@@ -343,13 +284,6 @@ const Routine = ({route}) => {
     // 약물 ID 기준으로 데이터를 그룹화할 객체
     const medicineMap = {};
 
-    // 요일 매핑 (API 날짜 -> 요일 숫자로 변환)
-    // getDayOfWeek 함수 수정 - 시간대 이슈 방지
-    const getDayOfWeek = dateString => {
-      const date = dayjs(dateString);
-      return date.day() === 0 ? 7 : date.day();
-    };
-
     // 각 날짜별로 데이터 처리
     routineData.forEach(dayData => {
       const dayOfWeek = getDayOfWeek(dayData.take_date);
@@ -357,8 +291,7 @@ const Routine = ({route}) => {
       // 각 스케줄 처리
       dayData.user_schedule_dtos.forEach(schedule => {
         // 스케줄 이름으로 시간대 결정, 없으면 시간으로 판단
-        const timeType =
-          getTimeTypeFromScheduleName(schedule.name);
+        const timeType = getTimeTypeFromScheduleName(schedule.name);
 
         // 해당 스케줄의 약물 정보 처리
         if (schedule.routine_dtos && schedule.routine_dtos.length > 0) {
@@ -439,20 +372,6 @@ const Routine = ({route}) => {
       }
     });
 
-    // 오늘 날짜에 해당하는 병원 방문 아이템 생성
-    // const todayHospitalItems = hospitalRoutines
-    //   .filter(hospital =>
-    //     hospital.day_of_weeks.includes(selectedDate.fullDate.day() + 1),
-    //   )
-    //   .map(hospital => ({
-    //     id: `hospital-${hospital.hospital_id}`,
-    //     label: hospital.name,
-    //     time: hospital.specific_time,
-    //     sortValue: hospital.sortValue,
-    //     type: 'hospital',
-    //     hospital,
-    //   }));
-
     // 모든 아이템 합치고 시간순 정렬
     return [...todayMedicineItems].sort((a, b) => a.sortValue - b.sortValue);
   };
@@ -494,44 +413,47 @@ const Routine = ({route}) => {
           }
           onPress={() => setSelectedDate(dayInfo)}>
           <DayText fontSizeMode={fontSizeMode}>{dayInfo.day}</DayText>
-          <DateText isToday={dayInfo.isToday} fontSizeMode={fontSizeMode}>{dayInfo.date}</DateText>
+          <DateText isToday={dayInfo.isToday} fontSizeMode={fontSizeMode}>
+            {dayInfo.date}
+          </DateText>
         </DayBox>
       ))}
     </WeekContainer>
   );
 
   return (
-    <Container style={{ paddingTop: insets.top }}>
-      <Header>
-        <HeaderText fontSizeMode={fontSizeMode}>루틴</HeaderText>
-        <ReturnButton
-          onPress={() => {
-            // 오늘 날짜로 선택 날짜 변경
-            setSelectedDate({
-              day: weekDays[today.day()],
-              date: today.date(),
-              month: today.month() + 1,
-              year: today.year(),
-              fullDate: today,
-            });
-
-            // 오늘 날짜가 있는 페이지(4번 인덱스)로 스크롤
-            if (flatListRef.current) {
-              flatListRef.current.scrollToIndex({
-                index: 4,
-                animated: true,
+    <Container>
+      <HeaderContainer>
+        <Header style={{paddingTop: insets.top}}>
+          <HeaderText fontSizeMode={fontSizeMode}>루틴</HeaderText>
+          <ReturnButton
+            onPress={() => {
+              // 오늘 날짜로 선택 날짜 변경
+              setSelectedDate({
+                day: weekDays[today.day()],
+                date: today.date(),
+                month: today.month() + 1,
+                year: today.year(),
+                fullDate: today,
               });
-            }
-          }}>
-          <OtherIcons.return
-            width={11}
-            height={11}
-            style={{color: themes.light.pointColor.Primary10}}
-          />
-          <ButtonText fontSizeMode={fontSizeMode}>돌아가기</ButtonText>
-        </ReturnButton>
-      </Header>
 
+              // 오늘 날짜가 있는 페이지(4번 인덱스)로 스크롤
+              if (flatListRef.current) {
+                flatListRef.current.scrollToIndex({
+                  index: 4,
+                  animated: true,
+                });
+              }
+            }}>
+            <OtherIcons.return
+              width={14}
+              height={14}
+              style={{color: themes.light.pointColor.Primary10}}
+            />
+            <ButtonText fontSizeMode={fontSizeMode}>돌아가기</ButtonText>
+          </ReturnButton>
+        </Header>
+      </HeaderContainer>
       {/* 페이징 가능한 DayContainer */}
       <DayContainerWrapper>
         <FlatList
@@ -565,14 +487,16 @@ const Routine = ({route}) => {
             right: 0,
             zIndex: 10,
           }}>
-          <TodayContainer>
+          <TodayContainer fontSizeMode={fontSizeMode}>
             <TodayHeader today={today} selectedDate={selectedDate} />
             <MedicineListButton
               onPress={() => navigation.navigate('MedicineList')}>
-              <MedicineListText fontSizeMode={fontSizeMode}>전체 목록</MedicineListText>
+              <MedicineListText fontSizeMode={fontSizeMode}>
+                전체 목록
+              </MedicineListText>
               <HeaderIcons.chevron
-                width={11}
-                height={11}
+                width={14}
+                height={14}
                 style={{
                   transform: [{rotate: '180deg'}],
                   color: themes.light.textColor.Primary50,
@@ -584,42 +508,17 @@ const Routine = ({route}) => {
 
         <ScrollView contentContainerStyle={{paddingVertical: 70}}>
           <ScheduleContainer>
-            {/* 타임라인 컨테이너 추가 */}
-            <TimelineContainer>
-              {/* 타임라인 세로줄 */}
-              {/* <TimelineLine /> */}
-
-              {/* 모든 루틴을 시간순으로 렌더링 */}
-              {allRoutines.length === 0 ? (
-                <EmptyContainer>
-                  <EmptyState
-                    image={
-                      <Images.emptyRoutine
-                        style={{marginBottom: 32, marginTop: 80}}
-                      />
-                    }
-                    title="루틴이 없습니다."
-                    description={`복용 중인 약을 검색하고\n루틴을 추가해 보세요.`}
-                  />
-                </EmptyContainer>
-              ) : (
-                allRoutines.map((routine, index) => (
-                  <RoutineCard
-                    key={routine.id}
-                    routine={routine}
-                    index={index}
-                    allLength={allRoutines.length}
-                    checkedItems={checkedItems}
-                    toggleTimeCheck={toggleTimeCheck}
-                    //toggleHospitalCheck={toggleHospitalCheck}
-                    toggleCheck={toggleCheck}
-                    selectedDateString={selectedDate.fullDate.format(
-                      'YYYY-MM-DD',
-                    )}
-                  />
-                ))
-              )}  
-            </TimelineContainer>
+            {/* RoutineTimeline 컴포넌트 사용 */}
+            <RoutineTimeline
+              allRoutines={allRoutines}
+              checkedItems={checkedItems}
+              selectedDateString={selectedDate.fullDate.format('YYYY-MM-DD')}
+              toggleTimeCheck={toggleTimeCheck}
+              toggleCheck={toggleCheck}
+              routineMode="default"
+              emptyTitle="루틴이 없습니다."
+              emptyDescription={`복용 중인 약을 검색하고\n루틴을 추가해 보세요.`}
+            />
           </ScheduleContainer>
         </ScrollView>
       </RoundedBox>
@@ -627,13 +526,23 @@ const Routine = ({route}) => {
   );
 };
 
-const Container = styled.View`
+const Container = styled(LinearGradient).attrs(() => ({
+  colors: [
+    themes.light.pointColor.Primary,
+    themes.light.pointColor.PrimaryDark,
+  ],
+  start: {x: 0, y: 0},
+  end: {x: 0, y: 0.3},
+}))`
   flex: 1;
-  background-color: ${themes.light.pointColor.Primary};
+`;
+
+const HeaderContainer = styled.View`
+  justify-content: flex-end;
+  padding-top: 10px;
 `;
 
 const Header = styled.View`
-  background-color: ${themes.light.pointColor.Primary};
   flex-direction: row;
   padding: 0px 20px;
   padding-top: 10px;
@@ -641,7 +550,7 @@ const Header = styled.View`
 `;
 
 const HeaderText = styled.Text`
-  font-size: ${({ fontSizeMode }) => FontSizes.title[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.title[fontSizeMode]};
   font-family: 'KimjungchulGothic-Bold';
   color: ${themes.light.textColor.buttonText};
   padding-left: 10px;
@@ -649,17 +558,17 @@ const HeaderText = styled.Text`
 
 const ReturnButton = styled.TouchableOpacity`
   flex-direction: row;
-  padding: 4px 10px;
+  padding: 6px 10px;
   justify-content: center;
   align-items: center;
   gap: 7px;
-  border: 1px solid ${themes.light.pointColor.Primary20};
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
 `;
 
 const ButtonText = styled.Text`
-  font-size: ${({ fontSizeMode }) => FontSizes.caption[fontSizeMode]}px;
-  font-family: 'Pretendart-Medium';
+  font-size: ${({fontSizeMode}) => FontSizes.caption[fontSizeMode]};
+  font-family: 'Pretendard-SemiBold';
   color: ${themes.light.pointColor.Primary10};
 `;
 
@@ -672,20 +581,18 @@ const MedicineListButton = styled(ReturnButton)`
 
 const MedicineListText = styled(ButtonText)`
   color: ${themes.light.textColor.Primary50};
-  font-family: 'Pretendart-Medium';
-  font-size: ${({ fontSizeMode }) => FontSizes.caption[fontSizeMode]}px;
+  font-family: 'Pretendard-SemiBold';
+  font-size: ${({fontSizeMode}) => FontSizes.caption[fontSizeMode]};
 `;
 
 // 페이징을 위한 컨테이너
-const DayContainerWrapper = styled.View`
-  background-color: ${themes.light.pointColor.Primary};
-`;
+const DayContainerWrapper = styled.View``;
 
 // 주차 단위 컨테이너
 const WeekContainer = styled.View`
   flex-direction: row;
   justify-content: space-around;
-  width: ${width}px;
+  width: ${width};
   padding: 20px 20px;
 `;
 
@@ -700,13 +607,13 @@ const DayBox = styled.TouchableOpacity`
 `;
 
 const DayText = styled.Text`
-  font-size: ${({ fontSizeMode }) => FontSizes.caption[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.caption[fontSizeMode]};
   font-family: 'Pretendard-Medium';
   color: ${themes.light.textColor.buttonText};
 `;
 
 const DateText = styled.Text`
-  font-size: ${({ fontSizeMode }) => FontSizes.heading[fontSizeMode]}px;
+  font-size: ${({fontSizeMode}) => FontSizes.heading[fontSizeMode]};
   font-family: 'Pretendard-SemiBold';
   color: ${themes.light.textColor.buttonText};
 `;
@@ -729,30 +636,12 @@ const TodayContainer = styled.View`
   align-items: center;
   justify-content: space-between;
   padding: 20px 30px;
-`;
-
-// 타임라인 관련 스타일 추가
-const TimelineContainer = styled.View`
-  //padding-top: 10px;
-  padding-left: 30px;
-  position: relative;
-`;
-
-const TimelineLine = styled.View`
-  position: absolute;
-  left: 21px;
-  top: 30px;
-  bottom: 30px;
-  width: 6px;
-  background-color: ${themes.light.pointColor.Primary};
-`;
-
-// TimelineContainer에 좌측 여백이 있으므로, 우측에 30px 여백이 있어야 중앙에 정렬됨
-const EmptyContainer = styled.View`
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding-right: 30px;
+  padding: ${({fontSizeMode}) =>
+    fontSizeMode === 'large'
+      ? '20px 10px'
+      : fontSizeMode === 'medium'
+      ? '20px 20px'
+      : '20px 30px'};
 `;
 
 export default Routine;
